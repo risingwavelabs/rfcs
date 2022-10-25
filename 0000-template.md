@@ -27,6 +27,10 @@ Explain the feature in detail.
 * Can they be resolved in some future RFCs?
 * Move some meaningful comments to here.
 
+## Alternatives
+
+What other designs have been considered and what is the rationale for not choosing them?
+
 ## Future possibilities
 
 Some potential extensions or optimizations can be done in the future based on the RFC.
