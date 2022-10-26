@@ -32,9 +32,9 @@ Following the process:
 The life cycle of an RFC is simple enough.
 
 ```plain
-Active ----> Accepted ----> Completed
-        |
-        |--> Closed
+Active ─┬──► Accepted ────► Completed
+        │
+        └──► Closed
 ```
 
 In every step, we can use the PR to discuss the RFC; even if it's closed or completed.
@@ -43,7 +43,7 @@ In every step, we can use the PR to discuss the RFC; even if it's closed or comp
 
 Most changes to the repo are the introduction of new RFCs, but some improvements to the repo itself are welcome, such as adding some lints to our CI.
 
-**note**
-Such PRs should not be combined with changes to any specified RFCs.
+> **Note**
+> Such PRs should not be combined with changes to any specified RFCs.
 
 [risingwave]: https://github.com/risingwavelabs/risingwave
