@@ -3,6 +3,27 @@ feature: my_excited_feature
 authors:
   - "TennyZhuang"
 start_date: "2022/10/24"
+<!-- choose some of the tags for your RFC, and feel free to add more tags in the template -->
+tags:
+  - user-facing
+  - feature
+  - framework
+  - enhancement
+  - optimization
+  - component/batch
+  - component/connector
+  - component/frontend
+  - component/streaming
+  - component/storage
+  - component/meta
+  - component/test
+<!-- feel free to add any keywords for your RFC -->
+keywords:
+  - state_cleaning
+  - watermark
+  - batch_index
+  - decoupling_checkpoint_barrier
+  - stream_two_phase_agg
 ---
 
 # My Excited Feature
