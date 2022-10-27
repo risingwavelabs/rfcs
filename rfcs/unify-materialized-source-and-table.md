@@ -3,7 +3,6 @@ feature: unify_materialized_source_and_table
 authors:
   - "TennyZhuang"
 start_date: "2022/9/13"
-tag: 
 ---
 
 # RFC: Unify the materialized source and table
