@@ -18,7 +18,9 @@ Currently the `partial_to_total_agg` of `Approx Count Distinct Agg` is `Sum0`, b
 ## Design
 
 * Alter group-by key of input into `bucket_id || group_by_keys`. (For example, in GlobalSimpleAgg whose `group_by_keys` is `None`, the new group-by key will be `bucket_id`.) We need to leverage `StreamExchange` to alter distribution key accordingly if necessary.
+* The partial agg is hash agg.
 * The partial agg should maintain bucket state in HyperLogLog algorithm. The implementation of the partial agg is detailedly described in https://github.com/risingwavelabs/risingwave/issues/3414.
+* The partial-to-all agg is global simple agg.
 * The partial-to-all agg should compute the harmonic mean of partial results, which is easy.
 
 ## Unresolved questions
