@@ -23,7 +23,7 @@ For this reason we need to find a better way to implement our distributed lookup
 
 I propose a new way schedule way for distributed lookup join by scheduling all the lookup join operators along with the inner side table scan. We use a new kind of Exchange operator to shuffle outer side data to match inner side data distribution. After shuffling outer side data to inner side node, we can execute LookupJoin locally without calling a RPC to other CN to lookup data.
 
-### New kind of exchange/Distribution
+### New kind of exchange/distribution
 
 ```
 /// TableId is used to represent the data distribution(`vnode_mapping`) of this
@@ -44,25 +44,19 @@ message ExchangeInfo {
   }
 }
 ```
+Scheduler will replace the `TableId` of `UpstreamHashShard` by an actual `vnode_mapping` to construct a `VHashInfo` to shuffle data.
 
 
-### 
-
+### Distributed LookupJoin
+For each inner side table parallel unit we will schedule a LookupJoin executor.
 Each LookupJoin executor will fetch the outer side data already shuffled by VHashInfo and then do the lookup join locally.
+We can maintain 2 kind of lookup implementation by checking LookupJoin executioin env. If LookupJoin executed in frontend node it must be in local execution mode. If LookupJoin executed in commpute node it must be in distributed execution mode.
 
 
+### Efficient multi point get
+Distributed LookupJoin can produce lots of multi point get, so we need to implement a more efficient multi point get method avoiding expensive stream conversion.
 
-
-## Unresolved questions
-
-* Are there some questions that haven't been resolved in the RFC?
-* Can they be resolved in some future RFCs?
-* Move some meaningful comments to here.
-
-## Alternatives
-
-What other designs have been considered and what is the rationale for not choosing them?
 
 ## Future possibilities
 
-Some potential extensions or optimizations can be done in the future based on the RFC.
+The new kind of Exchange can be used to another scenario like HashJoin to shuffle one side of data against another side data distribution.
