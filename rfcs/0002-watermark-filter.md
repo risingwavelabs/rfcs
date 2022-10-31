@@ -238,7 +238,7 @@ WINDOW w AS (
 )
 ```
 
-And `watermark_strategy_expression` offers potential to make user define their own strategy. Some following case is fancy and not very well-defined. You can treat them as a pseudocode which we might implement in furture
+And `watermark_strategy_expression` offers potential to make user define their own strategy. Some following case is fancy and not very well-defined. You can treat them as a pseudocode which we might implement in future.
 
 ```sql
 CREATE SOURCE `orders` (
