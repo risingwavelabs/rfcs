@@ -75,7 +75,7 @@ In most window definitions, one partition key is specified, and the data should 
 
 ### BatchOverWindow
 
-The implementation is trivial.
+The implementation is trivial, the only thing we need to concern is that the batch aggregator also needs to support `retract`, which is much more similar to the stream aggregator.
 
 ### StreamOverWindow
 
