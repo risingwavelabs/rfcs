@@ -176,7 +176,7 @@ WATERMARK(orders, time_column, watermark_strategy_expression)
 ```
 
 And the concept `watermark_strategy_expression` refers [FlinkSQL](https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/sql/create/#watermark). The expression is evaluated for every record and update the watermark if the result greater than the current watermark.
-The new synatx is more friendly for flinkSQL user and offers user methods defining their strategy
+The new syntax is more friendly for flinkSQL user and offers user methods defining their strategy.
 
 ```sql
 CREATE SOURCE `orders` (
