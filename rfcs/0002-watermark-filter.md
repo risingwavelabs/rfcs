@@ -228,7 +228,7 @@ SELECT
   lead(price, 1) over w as next_price,
   lead(order_time, 1) over w as next_order_time
 FROM 
-  WATERMARK(orders, order_time, INTERVAL '1' MINUTE), 
+  WATERMARK(orders, order_time, order_time - INTERVAL '1' MINUTE), 
 WHERE
   abs(next_price - price) > 10000
   AND next_order_time - order_time < INTERVAL '30' SECOND
@@ -252,7 +252,7 @@ CREATE SOURCE `orders` (
 
 -- normal timeout watermark
 with watermarked_orders as (
-  WATERMARK(orders, order_time, order - INTERVAL '1' MINUTE), 
+  WATERMARK(orders, order_time, order_time - INTERVAL '1' MINUTE), 
 ) 
 
 -- normal timeout watermark with simple check
@@ -263,7 +263,7 @@ with watermarked_orders as (
   CASE
   -- we have not determined the design about `PROC_TIME()`
     WHEN order_time > PROC_TIME() THEN Null
-    ELSE order - INTERVAL '1' MINUTE
+    ELSE order_time - INTERVAL '1' MINUTE
   END), 
 
   -- normal timeout watermark with removing outliers
@@ -279,7 +279,7 @@ with watermarked_orders as (
   order_time, 
   CASE
     WHEN order_time == win_max_time THEN Null
-    ELSE order - INTERVAL '1' MINUTE
+    ELSE order_time - INTERVAL '1' MINUTE
   END), 
 ) 
 ```
