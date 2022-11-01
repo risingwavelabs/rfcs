@@ -32,6 +32,7 @@ I propose a new way schedule way for distributed lookup join by scheduling all t
 /// TableId and then the schedule can fetch its corresponding `vnode_mapping` to do shuffle.
 UpstreamHashShard(Vec<usize>, Option<TableId>)
 ```
+
 We can extend `UpstreamHashShard` to accept a `Option<TableId>` to represent its exact data distribution aka. `vnode_mapping`.
 In this way we can use `UpstreamHashShard` to enforce plan node to satisfy a specific table distribution we want.
 
@@ -39,13 +40,42 @@ In this way we can use `UpstreamHashShard` to enforce plan node to satisfy a spe
 message ExchangeInfo {
   ...
   message VHashInfo {
-    repeated uint32 vnode_mapping = 1;
+    // `vmap` maps virtual node to down stream task id
+    repeated uint32 vmap = 1;
     repeated uint32 key = 2;
+  }
+
+  message HashInfo {
+    uint32 output_count = 1;
+    repeated uint32 key = 3;
   }
 }
 ```
+
 Scheduler will replace the `TableId` of `UpstreamHashShard` by an actual `vnode_mapping` to construct a `VHashInfo` to shuffle data.
 
+Notice: `vnode_mapping` maps virtual node to parallel unit, while `vmap` of `VHashInfo` maps virtual node to down stream task id.
+
+Let's compare the difference between `VHashInfo` and `HashInfo`. `HashInfo` will calculate the hash code of a row and then modulo output_count to get the down stream task id, while `VHashInfo` will calculate the vnode of the row and then get the down stream task id by `vmap`.
+
+On the scheduler side we need to schedule LookupJoin executor to its corresponding worker. In our case, we use `vnode_mapping` to determine where the LookupJoin executes.
+
+For example:
+```
+// For simplicity, we considering vnode_mapping only contains 8 vnodes and their corresponding parallel units are as follow.
+vnode_mapping = [2, 2, 2, 3, 3, 4, 4, 5]
+
+// its corresponding `vmap`:
+vmap = [0, 0, 0, 1, 1, 2, 2, 3]
+
+// we create 4 LookupJoin with task id 0, 1, 2 and 3 , because we have 4 distinct parallel unit
+
+// LookupJoin should be scheduled by their task id to corresponding worker
+LookupJoin 1 -> parallel unit 2 -> worker A
+LookupJoin 2 -> parallel unit 3 -> worker B
+LookupJoin 3 -> parallel unit 4 -> worker C
+LookupJoin 4 -> parallel unit 5 -> worker D
+```
 
 ### Distributed LookupJoin
 For each inner side table parallel unit we will schedule a LookupJoin executor.
@@ -54,7 +84,7 @@ We can maintain 2 kind of lookup implementation by checking LookupJoin executioi
 
 
 ### Efficient multi point get
-Distributed LookupJoin can produce lots of multi point get, so we need to implement a more efficient multi point get method avoiding expensive stream conversion.
+Distributed LookupJoin can produce lots of multi-point-get, so we need to implement a more efficient multi-point-get method avoiding small chunk and use sequential point-get instead of parallel point-get to reduce the contention.
 
 
 ## Future possibilities
