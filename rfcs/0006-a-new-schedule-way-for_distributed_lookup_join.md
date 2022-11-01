@@ -21,7 +21,7 @@ For this reason we need to find a better way to implement our distributed lookup
 
 <img width="863" alt="image" src="https://user-images.githubusercontent.com/9352536/198513912-dfd0fea5-baef-4ed1-98fb-996d158caa12.png">
 
-I propose a new way schedule way for distributed lookup join by scheduling all the lookup join operators along with the inner side table scan. We use a new kind of Exchange operator to shuffle outer side data to match inner side data distribution. After shuffling outer side data to inner side node, we can execute LookupJoin locally without calling a RPC to other CN to lookup data.
+I propose a new schedule way for distributed lookup join by scheduling all the lookup join operators along with the inner side table scan. We use a new kind of Exchange operator to shuffle outer side data to match inner side data distribution. After shuffling outer side data to inner side node, we can execute LookupJoin locally without calling a RPC to other CN to lookup data.
 
 ### New kind of exchange/distribution
 
@@ -39,7 +39,7 @@ In this way we can use `UpstreamHashShard` to enforce plan node to satisfy a spe
 ```
 message ExchangeInfo {
   ...
-  message VHashInfo {
+  message ConsistentHashInfo {
     // `vmap` maps virtual node to down stream task id
     repeated uint32 vmap = 1;
     repeated uint32 key = 2;
@@ -52,11 +52,11 @@ message ExchangeInfo {
 }
 ```
 
-Scheduler will replace the `TableId` of `UpstreamHashShard` by an actual `vnode_mapping` to construct a `VHashInfo` to shuffle data.
+Scheduler will replace the `TableId` of `UpstreamHashShard` by an actual `vnode_mapping` to construct a `ConsistentHashInfo` to shuffle data.
 
-Notice: `vnode_mapping` maps virtual node to parallel unit, while `vmap` of `VHashInfo` maps virtual node to down stream task id.
+Notice: `vnode_mapping` maps virtual node to parallel unit, while `vmap` of `ConsistentHashInfo` maps virtual node to down stream task id.
 
-Let's compare the difference between `VHashInfo` and `HashInfo`. `HashInfo` will calculate the hash code of a row and then modulo output_count to get the down stream task id, while `VHashInfo` will calculate the vnode of the row and then get the down stream task id by `vmap`.
+Let's compare the difference between `ConsistentHashInfo` and `HashInfo`. `HashInfo` will calculate the hash code of a row and then modulo output_count to get the down stream task id, while `ConsistentHashInfo` will calculate the vnode of the row and then get the down stream task id by `vmap`.
 
 On the scheduler side we need to schedule LookupJoin executor to its corresponding worker. In our case, we use `vnode_mapping` to determine where the LookupJoin executes.
 
@@ -71,15 +71,15 @@ vmap = [0, 0, 0, 1, 1, 2, 2, 3]
 // we create 4 LookupJoin with task id 0, 1, 2 and 3 , because we have 4 distinct parallel unit
 
 // LookupJoin should be scheduled by their task id to corresponding worker
-LookupJoin 1 -> parallel unit 2 -> worker A
-LookupJoin 2 -> parallel unit 3 -> worker B
-LookupJoin 3 -> parallel unit 4 -> worker C
-LookupJoin 4 -> parallel unit 5 -> worker D
+LookupJoin 0 -> parallel unit 2 -> worker A
+LookupJoin 1 -> parallel unit 3 -> worker B
+LookupJoin 2 -> parallel unit 4 -> worker C
+LookupJoin 3 -> parallel unit 5 -> worker D
 ```
 
 ### Distributed LookupJoin
 For each inner side table parallel unit we will schedule a LookupJoin executor.
-Each LookupJoin executor will fetch the outer side data already shuffled by VHashInfo and then do the lookup join locally.
+Each LookupJoin executor will fetch the outer side data already shuffled by ConsistentHashInfo and then do the lookup join locally.
 We can maintain 2 kind of lookup implementation by checking LookupJoin executioin env. If LookupJoin executed in frontend node it must be in local execution mode. If LookupJoin executed in commpute node it must be in distributed execution mode.
 
 
