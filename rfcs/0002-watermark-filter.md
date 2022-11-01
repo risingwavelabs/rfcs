@@ -172,8 +172,11 @@ The core idea of Exchange is **Prop 1.1.** We need also to align the watermarks,
 We can discuss the syntax later, but now we can implement that as a table function and expose the watermarkFilter’s behavior directly.
 
 ```plain
-WATERMARK(orders, time_column, timeout: interval)
+WATERMARK(orders, time_column, watermark_strategy_expression)
 ```
+
+And the concept `watermark_strategy_expression` refers [FlinkSQL](https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/sql/create/#watermark). The expression is evaluated for every record and update the watermark if the result greater than the current watermark.
+The new syntax is more friendly for flinkSQL user and offers user methods defining their strategy.
 
 ```sql
 CREATE SOURCE `orders` (
@@ -188,7 +191,7 @@ CREATE SOURCE `orders` (
 -- normal streaming plan, just for state cleaning
 SELECT customer_id, window_end as order_hour, SUM(price) as sum_price
 FROM TUMBLE(
-  WATERMARK(orders, order_time, INTERVAL '1' MINUTE), 
+  WATERMARK(orders, order_time, order_time - INTERVAL '1' MINUTE), 
   order_time, 
   INTERVAL '1' HOUR)
 GROUP BY window_end, customer_id;
@@ -197,7 +200,7 @@ GROUP BY window_end, customer_id;
 CREAT SINK AS
 SELECT customer_id, window_end as order_hour, SUM(price) as sum_price
 FROM TUMBLE(
-  WATERMARK(orders, order_time, INTERVAL '1' MINUTE), 
+  WATERMARK(orders, order_time, order_time - INTERVAL '1' MINUTE), 
   order_time, 
   INTERVAL '1' HOUR)
 GROUP BY window_end, customer_id EMIT ON WINDOW CLOSE;
@@ -206,7 +209,7 @@ GROUP BY window_end, customer_id EMIT ON WINDOW CLOSE;
 -- `EMIT ON WINDOW CLOSE` is necessary for `SESSION` due to implementation.
 SELECT customer_id, window_end as order_hour, SUM(price) as sum_price
 FROM SESSION(
-  WATERMARK(orders, order_time, INTERVAL '1' MINUTE),
+  WATERMARK(orders, order_time, order_time - INTERVAL '1' MINUTE),
   order_time,
   customer_id,
   INTERVAL '1' HOUR)
@@ -225,7 +228,7 @@ SELECT
   lead(price, 1) over w as next_price,
   lead(order_time, 1) over w as next_order_time
 FROM 
-  WATERMARK(orders, order_time, INTERVAL '1' MINUTE), 
+  WATERMARK(orders, order_time, order_time - INTERVAL '1' MINUTE), 
 WHERE
   abs(next_price - price) > 10000
   AND next_order_time - order_time < INTERVAL '30' SECOND
@@ -233,6 +236,52 @@ WINDOW w AS (
   PARTITION BY customer_id 
   ORDER BY order_time
 )
+```
+
+And `watermark_strategy_expression` offers potential to make user define their own strategy. Some following case is fancy and not very well-defined. You can treat them as a pseudocode which we might implement in future.
+
+```sql
+CREATE SOURCE `orders` (
+  `id` BIGINT,
+  `order_time` TIMESTAMP,
+  `price` DECIMAL,
+  `customer_id` BIGINT,
+) WITH (
+  'connector' = ...,
+);
+
+-- normal timeout watermark
+with watermarked_orders as (
+  WATERMARK(orders, order_time, order_time - INTERVAL '1' MINUTE), 
+) 
+
+-- normal timeout watermark with simple check
+with watermarked_orders as (
+  WATERMARK(
+  orders, 
+  order_time, 
+  CASE
+  -- we have not determined the design about `PROC_TIME()`
+    WHEN order_time > PROC_TIME() THEN Null
+    ELSE order_time - INTERVAL '1' MINUTE
+  END), 
+
+  -- normal timeout watermark with removing outliers
+with watermarked_orders as (
+  WATERMARK(
+  (
+    -- we have not determined the window funtion on unordered stream
+    select *, 
+      max(order_time) as win_max_time 
+        OVER(BETWEEN 10 PRECEDING AND CURRENT ROW)
+    from orders
+  ), 
+  order_time, 
+  CASE
+    WHEN order_time == win_max_time THEN Null
+    ELSE order_time - INTERVAL '1' MINUTE
+  END), 
+) 
 ```
 
 ## Future possibilities
