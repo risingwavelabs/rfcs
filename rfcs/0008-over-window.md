@@ -13,7 +13,7 @@ We will introduce the Over Window (OverWindow) to RisingWave in the RFC.
 
 Another well-known name of OverWindow is [Window Function][window_function_wiki]. Unfortunately, the name is highly ambiguous in streaming.
 
-Flink named the feature Over Aggregation][over_aggregation_flink], but we think Over Window can describe the part more concisely.
+Flink named the feature [Over Aggregation][over_aggregation_flink], but we think Over Window can describe the part more concisely.
 
 [window_function_wiki]: https://en.wikipedia.org/wiki/Window_function_(SQL)#:~:text=In%20SQL%2C%20a%20window%20function,single%20value%20for%20multiple%20rows.
 
