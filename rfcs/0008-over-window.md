@@ -16,6 +16,7 @@ Another well-known name of OverWindow is [Window Function][window_function_wiki]
 Flink named the feature [Over Aggregation][over_aggregation_flink], but we think Over Window can describe the part more concisely.
 
 [window_function_wiki]: https://en.wikipedia.org/wiki/Window_function_(SQL)#:~:text=In%20SQL%2C%20a%20window%20function,single%20value%20for%20multiple%20rows.
+[over_aggregation_flink]: https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/sql/queries/over-agg/
 
 ## Definitions
 
@@ -87,7 +88,7 @@ There are some limitations in stream aggregation:
 
 * If the sort key is specified, then a watermark must exist on the column.
 * If no sort key is specified, then the result is undefined but may be helpful; it's roughly the same as the proctime in Flink.
-* `FOLLOWING` is **banned; the max value of `frame_start` and `frame_end` is `CURRENT ROW`.
+* `FOLLOWING` is **banned**; the max value of `frame_start` and `frame_end` is `CURRENT ROW`.
 * Window functions that peek the future rows are **banned**, e.g., `lag`.
 
 ### Multiple windows
