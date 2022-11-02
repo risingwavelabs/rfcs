@@ -1,11 +1,11 @@
 ---
-feature: over_window
+feature: over_window_on_watermark
 authors:
   - "TennyZhuang"
 start_date: "2022/10/27"
 ---
 
-# Over Window
+# Over Window on watermark
 
 ## Summary
 
@@ -16,7 +16,9 @@ Another well-known name of OverWindow is [Window Function][window_function_wiki]
 Flink named the feature [Over Aggregation][over_aggregation_flink], but we think Over Window can describe the part more concisely.
 
 [window_function_wiki]: https://en.wikipedia.org/wiki/Window_function_(SQL)#:~:text=In%20SQL%2C%20a%20window%20function,single%20value%20for%20multiple%20rows.
-[over_aggregation_flink]: https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/sql/queries/over-agg/
+[over_aggregation_flink]: https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/sql/queries/over-agg
+
+Note: We'll only implement a limited OverWindow based on watermark strategy.
 
 ## Definitions
 
@@ -29,23 +31,7 @@ function_name ( * ) [ FILTER ( WHERE filter_clause ) ] OVER window_name
 function_name ( * ) [ FILTER ( WHERE filter_clause ) ] OVER ( window_definition )
 ```
 
-Window definition:
-
-```plain
-[ existing_window_name ]
-[ PARTITION BY expression [, ...] ]
-[ ORDER BY expression [ ASC | DESC | USING operator ] [ NULLS { FIRST | LAST } ] [, ...] ]
-[ frame_clause ]
-```
-
-frame_cause:
-
-```plain
- RANGE | ROWS | GROUPS } frame_start [ frame_exclusion ]
-{ RANGE | ROWS | GROUPS } BETWEEN frame_start AND frame_end [ frame_exclusion ]
-```
-
-We can simplify that in our first version:
+window_definition: only a column_ref is supported in the `ORDER BY` clause.
 
 ```plain
 [ existing_window_name ]
@@ -53,6 +39,8 @@ We can simplify that in our first version:
 [ ORDER BY column_ref ]
 [ frame_clause ]
 ```
+
+frame_clause: only `ROWS` is supported in our first version, and `BETWEEN` is necessary.
 
 ```plain
 ROWS BETWEEN frame_start AND frame_end
@@ -76,7 +64,7 @@ In most window definitions, one partition key is specified, and the data should 
 
 ### BatchOverWindow
 
-The implementation is trivial, the only thing we need to concern is that the batch aggregator also needs to support `retract`, which is much more similar to the stream aggregator.
+The implementation is trivial.
 
 ### StreamOverWindow
 
@@ -90,6 +78,20 @@ There are some limitations in stream aggregation:
 * If no sort key is specified, then the result is undefined but may be helpful; it's roughly the same as the proctime in Flink.
 * `FOLLOWING` is **banned**; the max value of `frame_start` and `frame_end` is `CURRENT ROW`.
 * Window functions that peek the future rows are **banned**, e.g., `lag`.
+
+## Unresolved questions
+
+### Future records lookup
+
+We can support `FOLLOWING` and `lag` by buffering some records or emitting a `NULL` downstream and updating them later. We can discuss them later.
+
+## Future possibilities
+
+### Two-phase OverWindow
+
+If the `PARTITION BY` clause is not specified, we can only use a singleton to maintain the materialized view, which may be the bottleneck of the whole DAG graph. We can do two-phase optimization like how we do that in [two-phase aggregation](https://singularity-data.quip.com/KtaRA6CspqRK/RFC-2-Phase-Agg-TopN-Operator-in-Streaming).
+
+However, too many window aggregators can't be implemented, e.g., `lead`.
 
 ### Multiple windows
 
@@ -112,16 +114,3 @@ The `pk` is the primary key of upstream.
 
 There is a particular optimization for state cleaning; we need to store the `s1` as the prefix of the right-side state table in the join executor and the same on the left side. This can be done quickly by the front end.
 
-## Unresolved questions
-
-### Future records lookup
-
-We can support `FOLLOWING` and `lag` by buffering some records or emitting a `NULL` downstream and updating them later. We can discuss them later.
-
-## Future possibilities
-
-### Two-phase OverWindow
-
-If the `PARTITION BY` clause is not specified, we can only use a singleton to maintain the materialized view, which may be the bottleneck of the whole DAG graph. We can do two-phase optimization like how we do that in [two-phase aggregation](https://singularity-data.quip.com/KtaRA6CspqRK/RFC-2-Phase-Agg-TopN-Operator-in-Streaming).
-
-However, too many window aggregators can't be implemented, e.g., `lead`.
