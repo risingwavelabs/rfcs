@@ -27,13 +27,12 @@ I propose a new schedule way for distributed lookup join by scheduling all the l
 
 ```
 /// TableId is used to represent the data distribution(`vnode_mapping`) of this
-/// UpstreamHashShard None means we don't have exact knowledge of its data distribution.
-/// If UpstreamHashShard is used to encore distribution of some plan node, you must specify the
-/// TableId and then the schedule can fetch its corresponding `vnode_mapping` to do shuffle.
-UpstreamHashShard(Vec<usize>, Option<TableId>)
+/// UpstreamHashShard. The scheduler can fetch TableId's corresponding `vnode_mapping` to do
+/// shuffle.
+UpstreamHashShard(Vec<usize>, TableId)
 ```
 
-We can extend `UpstreamHashShard` to accept a `Option<TableId>` to represent its exact data distribution aka. `vnode_mapping`.
+We can extend `UpstreamHashShard` to accept a `TableId` to represent its exact data distribution aka. `vnode_mapping`.
 In this way we can use `UpstreamHashShard` to enforce plan node to satisfy a specific table distribution we want.
 
 ```
