@@ -24,6 +24,9 @@ Since we don't have any statistics about table/mv, we are unable to calculate a 
 - Single table primary key lookup. we can check our physical plan to ensure whether there is only one table scan in the plan tree and this table scan contains a point lookup scan range.
 - Single table two side bounded range scan. we can check our physical plan to ensure whether there is only one table scan in the plan tree and this table scan contains a two side bounded scan range.
 - Single table Index lookup. we can check our logical plan and physical plan to ensure there is only one table scan in the logical plan tree and there is a lookup join(non covering index) or there is a table scan in the physical plan tree(covering index).
+- Select without any table scan. Such as `select 1`.
+- Single table with limit n. If n is small, we can also allow them run in local mode.
+- Two table IndexNestedLoopJoin. Such as `select * from A join B on A.k = B.k where A.id = 1` If B.k has an index and A side input is proved to be small.
 
 
 
