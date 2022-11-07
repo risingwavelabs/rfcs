@@ -63,9 +63,14 @@ Based on above assumptions, we will introduct a cluster wide `max_concurrent_dis
 
 ## Unresolved questions
 
-Although [this rfc][1] is approved, it's not in stable rust. There is no guarantee that all collections is aware of this behavior(panic of abort), and this may be unsound.
+1. Although [this rfc][1] is approved, it's not in stable rust. There is no guarantee that all collections is aware of this behavior(panic of abort), and this may be unsound.
 
-## Alternatives
+2. Currently the default behavior of panic is aborting, and this is used for health check in streaming engine. There are two ways to solve this issue:
+
+* Add true heartbeat mechanism for streaming health check.
+* Tokio runtime has provided [an unstable api](https://docs.rs/tokio/latest/tokio/runtime/struct.Builder.html#method.unhandled_panic) to customize unhandled panic, e.g. we can stop a runtime when panic happens. We can use this to stop streaming runtime when panic happens.
+
+# Alternatives
 
 For memory limitation, we may use other techniques, such as `try_reserve` method in collection api, or reserves an estimated size before true allocation happends. There are some problems with this approach:
 
