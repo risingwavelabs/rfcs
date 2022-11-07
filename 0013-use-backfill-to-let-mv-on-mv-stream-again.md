@@ -19,6 +19,9 @@ There is a paper *Online, Asynchronous Schema Change in F1* introduced by google
 
 We use creating index as a example to illustrate the idea, however, we can apply it to create mv too. Suppose that we have a table T which contains 10,000 rows. We want to create an index on it. This index is actually also a materialized view. The backfill operations work like as following.
 
+<img width="970" alt="image" src="https://user-images.githubusercontent.com/9352536/200274858-7880302a-952e-4f39-9c85-0f59fe9d4233.png">
+
+
 ### Backfill
 
 Create a backfill operator which is similar to the Chain operator.
@@ -26,7 +29,7 @@ Create a backfill operator which is similar to the Chain operator.
 - Use a variable `current_pos` to keep track of the position (pk) we have backfilled which is initialized as 0.
 - We select rows pk within (`current_pos`, `current_pos` + `batch_size`) from table T into buffer and flush buffer to the index after barrier. e.g. `batch_size` can be 1000.
 - Repeatedly backfill batch data into the index and set `current_pos = current_pos + batch_size`.
-- When current_pos become the end of Table T, backfill finishes. we can forward upstream message directly to the downstream.
+- When current_pos become the end of Table T, backfill finishes. we can forward upstream message directly to the downstream and make the index visible to users.
 
 ### More Detail
 
@@ -40,11 +43,12 @@ During current epoch, we need to:
 
 ### Failover & Recovery
 
-We can save `current_pos` to the state and use it to help us recover after failover. It is useful if we need to create a mv on a existing mv with lots of data. It may takes a long time to create and if any error happen during creating, we can recover from the last position we record to save expensive work have been done before.
+We can persist `current_pos` to the state store and use it to help us recover after failure. It is useful if we need to create a mv on a existing mv with lots of data. It may takes a long time to create and if any error happen during creating, we can recover from the last position we record to save expensive work have been done before.
 
+### How to determine BatchSize
 
-## Unresolved questions
-
+- The simplest way is make `batch_size` constant or configurable. It could never catch up upstream if it is configured too small. Or it could increase the barrier latency if it is configured too large.
+- Another way is that we don't predefine `batch_size` and stop the snapshot scan util upstream barrier come.
 
 ## Future possibilities
 
