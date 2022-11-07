@@ -26,30 +26,42 @@ We use creating index as an example to illustrate the idea, however, we can appl
 Create a backfill operator which is similar to the Chain operator.
 
 - Use a variable `current_pos` to keep track of the position (pk) we have backfilled which is initialized as 0.
-- We select rows pk within (`current_pos`, `current_pos` + `batch_size`) from table T into buffer. e.g. `batch_size` can be 1000.
+- We select rows with pk between (`current_pos`, `current_pos` + `batch_size`) from table T into buffer. e.g. `batch_size` can be 1000.
 - Handle all the streaming messages from upstream until the barrier comes. (Details are in the next Section)
 - Flush buffer to the index when barrier comes.
 - Set `current_pos = current_pos + batch_size` and repeatedly backfill batch data into the index.
 - When `current_pos` becomes the end of Table T, the backfill finishes. we can forward upstream messages directly to the downstream and make the index visible to users.
 
-### Deal with Streaming Message
+### Deal With Streaming Message
 
 Each iteration of backfill needs to use the latest commited epoch to scan the table T so that it can contain all the stream messages of the table in the previous epoch.
 During the current epoch, we need to:
-- Buffer all the batch data (`current_pos`, `current_pos` + `batch_size`) selected from table T. Apply any stream messages from table T if their pks are within (`current_pos`, `current_pos` + `batch_size`) to the buffer data.
+- Buffer all the batch data (`current_pos`, `current_pos` + `batch_size`) selected from table T. Apply any stream messages from table T if their pks are between (`current_pos`, `current_pos` + `batch_size`) to the buffer data.
 - Forward stream message if its pk is smaller than `current_pos` to the downstream.
 - Ignore stream message if its pk is bigger than `current_pos` + `batch_size`.
-- When the barrier comes, flush all the buffered data to the downstream and increase the epoch and `current_pos = current_pos + batch_size`.
+- When the barrier comes, flush all the buffered data to the downstream and increase the epoch and set `current_pos = current_pos + batch_size`.
 
 
 ### Failover & Recovery
 
 We can persist `current_pos` to the state store and use it to help us recover after failure. It is useful if we need to create a mv on an existing mv with lots of data. It may take a long time to create and if any error happens during creating, we can recover from the last position we record to save expensive work that has been done before.
 
-### How to determine BatchSize
+### How To Determine BatchSize
 
 - The simplest way is to make `batch_size` constant or configurable. It could never catch up upstream if it is configured too small. Or it could increase the barrier latency if it is configured too large.
 - Another way is that we don't predefine `batch_size` and stop the snapshot scan until the upstream barrier comes.
+- The final way is measuring the actual barrier interval and comparing it with the system barrier interval. If the actual barrier interval is bigger than the system barrier interval, reduce `batch_size` otherwise increase it.
+
+### Backfill Without Buffer
+
+Actually the backfill operator doesn't need to buffer any data itself, it can select rows with pk between (`current_pos`, `current_pos` + `batch_size`) from upstream and insert them to the downstream directly. After sending the snapshot data, backfill operator consumes the upstream messages as follows:
+
+- Forward stream message if its pk is smaller than `current_pos` + `batch_size` to the downstream.
+- Ignore stream message if its pk is bigger than `current_pos` + `batch_size`.
+- When the barrier comes, increase the epoch and set `current_pos = current_pos + batch_size`.
+
+It is almost identical to the previous chain operator except for reading a small range rather than the whole table. It is also a perfect way to handle append only upstream.
+
 
 ## Future possibilities
 
