@@ -127,7 +127,7 @@ LogicalProject { exprs: [round($0)] }
 
 The solution can work well on `Project`, `Filter`, and `Join`, but failed on [the filter clause](https://medium.com/little-programming-joys/the-filter-clause-in-postgres-9-4-3dd327d3c852). There are also many other corner cases since expressions are used everywhere in PostgreSQL.
 
-Also, this is not an elegant solution. For the frontend part, `Project` and `ProjectSet` are the same.
+Also, this is not an elegant solution. For the frontend part, `Project` and `ProjectAsync` are the same.
 
 ## Future possibilities
 
