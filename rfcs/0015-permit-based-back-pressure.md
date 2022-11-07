@@ -24,7 +24,7 @@ According to the recent benchmarks, we find a serious problem: since we bound th
 
 Take TPCH Q12 as an example:
 
-```jsx
+```plain
 StreamMaterialize { columns: [l_shipmode, high_line_count, low_line_count], pk_columns: [l_shipmode] }
 └─StreamProject { exprs: [lineitem.l_shipmode, sum(Case(((orders.o_orderpriority = '1-URGENT':Varchar) OR (orders.o_orderpriority = '2-HIGH':Varchar)), 1:Int32, 0:Int32)), sum(Case(((orders.o_orderpriority <> '1-URGENT':Varchar) AND (orders.o_orderpriority <> '2-HIGH':Varchar)), 1:Int32, 0:Int32))] }
   └─StreamHashAgg { group_key: [lineitem.l_shipmode], aggs: [count, sum(Case(((orders.o_orderpriority = '1-URGENT':Varchar) OR (orders.o_orderpriority = '2-HIGH':Varchar)), 1:Int32, 0:Int32)), sum(Case(((orders.o_orderpriority <> '1-URGENT':Varchar) AND (orders.o_orderpriority <> '2-HIGH':Varchar)), 1:Int32, 0:Int32))] }
