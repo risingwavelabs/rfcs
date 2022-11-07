@@ -9,7 +9,7 @@ start_date: "2022/11/07"
 
 ## Summary
 
-Explain the feature in short.
+Run a dedicated cluster to serve batch queries.
 
 ## Motivation
 
@@ -41,7 +41,7 @@ Serving Cluster:
 - PU#2: vnodes [3, 4, 5]
 ```
 
-High availability can be achieved by allocating multiple Parallel Units for each vnode. For example, given 3 nodes and `replicas = 2`,
+High availability can be achieved by allocating multiple Parallel Units for each vnode, where one of them is primary and the other(s) are stand-by. Once the primary replica is unavaialble, the stand-by replica will immediately be picked by frontend as new route. This provides us both high-availability and cache-locality. For example, given 3 nodes and `replicas = 2`,
 
 ```jsx
 Serving Cluster: 
