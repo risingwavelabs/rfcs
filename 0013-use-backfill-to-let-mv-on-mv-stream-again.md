@@ -17,29 +17,30 @@ There is a paper *Online, Asynchronous Schema Change in F1* introduced by google
 
 ## Design
 
-We use creating index as a example to illustrate the idea, however, we can apply it to create mv too.Suppose that we have a table T which contains 10,000 rows. We want to create an index on it. This index is actually also a materialized view. The backfill operations work like as following.
+We use creating index as a example to illustrate the idea, however, we can apply it to create mv too. Suppose that we have a table T which contains 10,000 rows. We want to create an index on it. This index is actually also a materialized view. The backfill operations work like as following.
 
 ### Backfill
 
-- Use a variable `current_pos` to keep track the position (pk) we have backfilled which initialized as 0.
-- We select (`current_pos`, `current_pos` + `batch_size`) from table T and insert them to the index. e.g. `batch_size` can be 1000.
-- Repeatedly backfill next batch after current batch to the index.
-- We can forward any update stream from table T to the index if its pk is lower than the `current_pos` concurrently, otherwise, igonre the update.
+Create a backfill operator which is similar to the Chain operator.
+
+- Use a variable `current_pos` to keep track of the position (pk) we have backfilled which is initialized as 0.
+- We select rows pk within (`current_pos`, `current_pos` + `batch_size`) from table T into buffer and flush buffer to the index after barrier. e.g. `batch_size` can be 1000.
+- Repeatedly backfill batch data into the index and set `current_pos = current_pos + batch_size`.
+- When current_pos become the end of Table T, backfill finishes. we can forward upstream message directly to the downstream.
 
 ### More Detail
 
-Each step of backfill needs to use the latest commited epoch to select the table T so that it can contain all the update of the table in previous epoch.
+Each step of backfill needs to use the latest commited epoch to scan the table T so that it can contain all the stream messages of the table in previous epoch.
 During current epoch, we need to:
-- buffer all the batch data (`current_pos`, `current_pos` + `batch_size`) selected from table T.Apply any updates from table T if their pks are within (`current_pos`, `current_pos` + `batch_size`) to the buffer data.
-- Forward update if its pk is less than `current_pos` to the index.
-- Ignore update if its pk is bigger than `current_pos` + `batch_size`.
+- Buffer all the batch data (`current_pos`, `current_pos` + `batch_size`) selected from table T. Apply any stream message from table T if their pks are within (`current_pos`, `current_pos` + `batch_size`) to the buffer data.
+- Forward stream message if its pk is smaller than `current_pos` to the down stream.
+- Ignore stream message if its pk is bigger than `current_pos` + `batch_size`.
 - When the barrier comes, flush all the buffered data to downstream and increase the epoch and `current_pos = current_pos + batch_size`.
-- Once we finish the backfill, we can keep forward update from upstream to the downstream.
 
 
 ### Failover & Recovery
 
-We can save `current_pos` to the state and use it to help us recover after failover. It is useful if we need to create a mv on a large existing mv. It may takes a long time to create and if any error happen during creating, we can recover from the last position we record to save expensive work have been done before.
+We can save `current_pos` to the state and use it to help us recover after failover. It is useful if we need to create a mv on a existing mv with lots of data. It may takes a long time to create and if any error happen during creating, we can recover from the last position we record to save expensive work have been done before.
 
 
 ## Unresolved questions
