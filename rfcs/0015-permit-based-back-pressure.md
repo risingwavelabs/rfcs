@@ -48,13 +48,11 @@ Based on the current configuration, we have…
 
 Different size of buffer will lead to imbalance back-pressure. To verify this, we scale the Hash Join to a single parallel unit, then it’s shown that the throughput of the local upstream (in the same compute node, `:1222`) will be significantly lower, and the back-pressure rate increases from 5.0% to 96.3%.
 
-![Throughput 20,000 vs 100,000](Permit-based%20Back-pressure%20with%20Bidirectional%20gRPC%20a11d74903c9b4784b14010a2886f5093/Untitled.png)
+![Throughput 20,000 vs 100,000](https://user-images.githubusercontent.com/25862682/200235752-538b8489-2eae-4328-8f24-0c3d91a63d1a.png)
+> Throughput 20,000 vs 100,000
 
-Throughput 20,000 vs 100,000
-
-![Back-pressure rate 96.3% vs 5.0%](Permit-based%20Back-pressure%20with%20Bidirectional%20gRPC%20a11d74903c9b4784b14010a2886f5093/Untitled%201.png)
-
-Back-pressure rate 96.3% vs 5.0%
+![Back-pressure rate 96.3% vs 5.0%](https://user-images.githubusercontent.com/25862682/200235733-e9f16801-dbf9-4f16-ae47-4aab354c64bc.png)
+> Back-pressure rate 96.3% vs 5.0%
 
 Can we resolve this by increasing the capacity of the local channel? Partially. Consider a counterexample that the chunk is really wide and includes some large blobs, for example, average 500 bytes per row. Then we can only buffer ~131 rows in the network but 16384 rows in the channel. 😄 Increasing the capacity of the local channel only makes it worse.
 
