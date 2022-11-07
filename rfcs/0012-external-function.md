@@ -137,4 +137,4 @@ The external function framework will not be public to users, so we use gRPC in o
 
 ### Using wasm-based implementation and embedding the VM into the kernel?
 
-A good idea, but currently, the capacity of the wasm is limited. For some CPU-bounded functions written in some languages without heavy runtime, it's a better solution for performance.
+A good idea, but currently, the capability of the wasm is limited. For some CPU-bounded functions written in some languages without heavy runtime, it's a better solution for performance.
