@@ -31,23 +31,19 @@ To avoid aborting in allocation failure, we should catch oom error and return an
 mod tests {
     use std::alloc::set_alloc_error_hook;
 
-    use futures::FutureExt;
     use tokio::spawn;
 
     #[tokio::test]
-    async fn run_oom() {
-        set_alloc_error_hook(|_| {
-            panic!("Allocation error!");
-        });
+    async fn test_oom() {
+        set_alloc_error_hook(|layout| panic!("Oops, oom happened for layout {:?}", layout));
 
-        let f = async {
+        let f = spawn(async {
             let x = Vec::<u128>::with_capacity(99999999999999999);
             println!("x's len is {:?}", x.len());
-        }
-        .catch_unwind();
+        });
 
         let ret = f.await;
-        assert!(!ret.is_err());
+        assert!(ret.is_err());
     }
 }
 ```
