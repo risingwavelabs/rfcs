@@ -13,7 +13,8 @@ Run a dedicated cluster to serve batch queries.
 
 ## Motivation
 
-- **Different traffic pattern** of batch & streaming. Batch queries, especially the high-concurrent point queries (aka. “online serving”), requires millisecond-level low latency and high availability, while streaming jobs focus more on high throughput and cost efficiency.
+- **Different traffic pattern**. Batch queries, especially the high-concurrent point queries (aka. “online serving”), requires millisecond-level low latency and high availability, while streaming jobs focus more on high throughput and cost efficiency.
+- **Different access pattern on storage** of batch & streaming. Batch queries are issued by services on user side, while streaming operators always handle the changes from upstreaming system. It's possible that they have quite different distribution of access aka. hotspot. 
 - In some extreme use cases, the QPS on serving side could be 100K or even higher, which may result in severe **resource contention** (CPU, IOPS, etc.) against streaming jobs.
 
 To address these problems, here we propose to run a dedicated cluster to serve batch queries (hereafter referred to as “serving cluster”). Meanwhile, data source, sink and maintenance of MViews are still done in the primary streaming cluster.
