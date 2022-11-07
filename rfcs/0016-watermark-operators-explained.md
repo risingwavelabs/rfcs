@@ -9,7 +9,7 @@ start_date: "2022/10/25"
 
 In [RFC: The WatermarkFilter and StreamSort Operator](https://github.com/risingwavelabs/rfcs/pull/2), we showed how watermark will be used in RisingWave. This doc will introduce how the key operators should be implemented in our system.
 
-![Overview of the design. Image explained in detail below](Watermark%20Operators%20Explained%20a6f9645a068a435bb11074e9596abdf8/Untitled.png)
+![Overview of the design. Image explained in detail below](https://user-images.githubusercontent.com/25862682/200244705-67cc7f80-d89f-408f-a47a-26414db55a5f.png)
 
 > Overview of the design. Image explained in detail below
 
@@ -60,7 +60,7 @@ For source operators, the `Vnode` here makes less sense and what we really want 
 
 After the Watermark Filter per parallel unit, we need to handle the `Watermark` message across the Exchange. The basic idea is very similar to Flink. We show that, there will be no significant changes on the Exchange and it will still be **stateless** based on the design of the Watermark Filter above, with support for fail-over and scaling naturally.
 
-![Untitled](Watermark%20Operators%20Explained%20a6f9645a068a435bb11074e9596abdf8/Untitled%201.png)
+![Global Watermark](https://user-images.githubusercontent.com/25862682/200244696-12cd9629-d769-4064-b867-dfb0f209fd89.png)
 
 ### Dispatcher
 
