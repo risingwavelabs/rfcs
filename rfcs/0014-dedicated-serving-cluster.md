@@ -21,6 +21,13 @@ To address these problems, here we propose to run a dedicated cluster to serve b
 
 Additionally, this should be an **optional** feature. Some simple use cases, like dashboard, may not need to support such high concurrency. Besides, free tier RisingWave Cloud users are definitely not its target users.  
 
+## Non-Goals
+
+The objective is to **isolate the resources** of streaming and batch instead of providing any new functional or performance features. Users pay more money and get a more stable streaming and batching performance, and that's all.
+
+1. **Columar store**. This design primarily focuses on serving instead of OLAP, so we will not discuss about anything about columnar format. The serving cluster can be used to run some short-time analytical queries as long as the resources are sufficient.
+2. **Row store in another distribution**. This design does nothing about range scan or any other requirements. Hash or range distribution is a forever debate and we should not continue it here.
+
 ## Design
 
 Decoupling barrier and checkpoint (reference: [Support barrier-checkpoint decoupling](https://singularity-data.quip.com/QLOaAegyeApR/Support-barrier-checkpoint-decoupling)) allows us to decouple the streaming barrier from the expensive checkpointing process, but also brings more complexity to us.  
@@ -55,21 +62,34 @@ Serving Cluster:
 
 In the current design, non-checkpointing barriers are much more frequent than checkpointing barriers, so it provided both freshness and lower IO cost. However, these non-checkpointed updates are only kept in memory, more specifically, in the `StateStore` of the `MaterializedExecutor` with corresponding vnode.
 
+#### Approach 1. Read non-checkpoint writes from primary cluster (Preferred)
+
+> Suggested by @BowenXiao1999 and @hzxa21
+
+Inform the serving cluster with the vnode mapping of primary streaming cluster. Once the servering cluster find it lack of the data of epoch being requested (the read snapshot epoch is piggy-backed in frontend's RPC), it can issue a RPC to fetch the changes (i.e. immutable MemTables) from the corresponding streaming CNs.
+
+#### Approach 2. Read non-checkpoint writes from S3
+
 Here we propose to **store** these barrier-level changes of non-checkpoint barriers to shared storage **temporarily**. These immutable MemTable SSTs will only be temporarily placed in L0, and these SST files can be dropped as long as next checkpoint completes.
 
 To make it simpler, we can reuse the concept “compaction group”. A compaction group can be tagged as checkpointing on every barrier. Table_ids in such compaction groups will upload its immutable MemTable on non-checkpointing barriers, and a “serving-only” version will be created.
 
 Note that serving-only versions will not affect the recovery process. On recovery, all nodes should roll back the latest completed checkpoint like before.
 
+#### Approach 3. Contantly streaming changes from primary cluster
+
+> Suggested by @hzxa21
+
+Streaming (push) changes to serving nodes. 
+
+But I think the streaming is not that "streaming". Since we hope to allow both cluster to have different SLA, and furthermore, can be scaled independently, it may be complicated than imagination. 
+
+Perhaps we can introduce some additional machanism to push changes. This seems to be harder than approach 1 so I stopped here, but proposals are welcomed.
+
 ## Unresolved questions
 
 None
 
-## Alternatives
-
-**How about streaming changes to serving nodes?**
-
-This is possible. However, since we hope to allow both cluster to have different SLA, and furthermore, can be scaled independently, the streaming here may be complicated than imagination. 
 
 ## Future possibilities
 
