@@ -66,7 +66,7 @@ In the current design, non-checkpointing barriers are much more frequent than ch
 
 > Suggested by @BowenXiao1999 and @hzxa21
 
-Inform the serving cluster with the vnode mapping of primary streaming cluster. Once the servering cluster find it lack of the data of epoch being requested (the read snapshot epoch is piggy-backed in frontend's RPC), it can issue a RPC to fetch the changes (i.e. immutable MemTables) from the corresponding streaming CNs.
+Inform the serving cluster with the vnode mapping of primary streaming cluster. Once the servering cluster find it lack of the data of epoch being requested (the snapshot epoch to read is piggy-backed in frontend's RPC), it can send an RPC to fetch the changes (i.e. immutable MemTables) from the corresponding streaming CN.
 
 #### Approach 2. Read non-checkpoint writes from S3
 
@@ -82,7 +82,7 @@ Note that serving-only versions will not affect the recovery process. On recover
 
 Streaming (push) changes to serving nodes. 
 
-But I think the streaming is not that "streaming". Since we hope to allow both cluster to have different SLA, and furthermore, can be scaled independently, it may be complicated than imagination. 
+However, I think the streaming is not that "streaming". Since we hope to allow both cluster to have different SLA, and furthermore, can be scaled independently, it may be more complicated than imagination. 
 
 Perhaps we can introduce some additional machanism to push changes. This seems to be harder than approach 1 so I stopped here, but proposals are welcomed.
 
