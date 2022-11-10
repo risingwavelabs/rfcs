@@ -9,7 +9,7 @@ start_date: "2022/11/10"
 
 ## Summary
 
-Introduce execute batch query on sources like kafka/s3.
+Support executing the batch queries on sources like Kafka/S3.
 
 ## Motivation
 
