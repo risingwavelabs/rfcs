@@ -45,6 +45,7 @@ User-oriented APIs will have batch and non-batch interfaces, but in our protocol
 There are several benefits of the batch API:
 
 1. The performance of batch API is better and easy to tune.
+
 2. Apache Arrow is a well-known open format, and we can reuse their ecosystems.
 
 The only usages of the `eval_row` API in our codebase now:
@@ -106,9 +107,31 @@ Thanks to the Stream-based execution model, we can quickly achieve the result by
 
 We have no choice but to retry. One way to minimize the loss is to introduce the partial-checkpoint mechanism.
 
+## Multiple return values
+
+PostgreSQL allows users to specify multiple return values:
+
+```sql
+CREATE FUNCTION sum_n_product (x int, y int, OUT sum int, OUT product int)
+AS 'SELECT x + y, x * y'
+LANGUAGE SQL;
+```
+
+We can refer to the syntax to support multiple return values but pack them in an anonymous struct.
+
+### Deterministic
+
+We expect all UDFs will output a deterministic result. However,  some functions are not deterministic. There are three accepted ways:
+
+Only allow UDFs over an append-only stream.
+Force a checked `MaterializeExecutor` over the UDF.
+Force UDFs to be explicitly defined with the DETERMINISTIC keyword and trust the users.
+
+BTW we can also apply the solution to built-in non-deterministic functions, such as `random(),` `proc_time()` or `now()`.
+
 ## Alternatives
 
-### Introduce a new operator `ProjectAsync` to execute async UDFs
+### Introduce a new operator, `ProjectAsync` to execute async UDFs
 
 The solution heavily invades the planner part.
 
