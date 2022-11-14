@@ -12,7 +12,7 @@ start_date: "2022/11/03"
 We will introduce coarse grained resource management for batch query engine:
 
 1. Limit number of concurrent distributed queries in each frontend node.
-2. Use `catch_unwind` to prevent oom aborting process.
+2. Limit the total amount of memory used by batch query engine.
 
 ## Motivation
 
@@ -24,60 +24,35 @@ There exists many different fine grained resource management strategies in indus
 
 ## Design
 
-To avoid aborting in allocation failure, we should catch oom error and return an error. Here is an example code:
+### Limit number of concurrent distributed queries
 
-```rust
-#[cfg(test)]
-mod tests {
-    use std::alloc::set_alloc_error_hook;
-
-    use tokio::spawn;
-
-    #[tokio::test]
-    async fn test_oom() {
-        set_alloc_error_hook(|layout| panic!("Oops, oom happened for layout {:?}", layout));
-
-        let f = spawn(async {
-            let x = Vec::<u128>::with_capacity(99999999999999999);
-            println!("x's len is {:?}", x.len());
-        });
-
-        let ret = f.await;
-        assert!(ret.is_err());
-    }
-}
-```
-
-We set an oom error hook to panic rather than abort, and use unwind to catch this error. For details please refer to [this rfc][1] and [this pr][2].
-
-To further reduce the chance of query failure, we need to limit the number of concurrent distributed queries running in cluster. To implement this mechanism, we have two assumptions:
+To reduce the chance of query failure, we need to limit the number of concurrent distributed queries running in cluster. To implement this mechanism, we have two assumptions:
 
 1. Load balancer works well, so each frontend node receives almost same amount of queries.
 2. Enforcing this limitation is not mandatory, just best effort is enough.
 
-Based on above assumptions, we will introduct a cluster wide `max_concurrent_distributed_queries` config, which limits number of concurrent distributed queries in cluster. Meta node will divide this value according to number of frontend nodes, and sync to each frontend node. Frontend node will limit this concurrent queries according to this value.
+Based on above assumptions, we will introduce a cluster wide `max_concurrent_distributed_queries` config, which limits number of concurrent distributed queries in cluster. Meta node will divide this value according to number of frontend nodes, and sync to each frontend node. Frontend node will limit this concurrent queries according to this value.
+
+### Limit number of memory used in batch query engine
+
+To avoid aborting in allocation failure, we will introduce a config `batch_query_max_memory`, which limits the number of memory used by all batch query executors on each compute node. To enforce this limitation, we need to pass an `Allocator` implementation to each executor, which internally uses an atomic number to count memory usage, and returns error when  There are several cases to consider when using `Allocator` in executor:
+
+1. Falliable collections. This is the eaiest case, and we should use `try_reserve`/`try_insert` api as mush as possible.
+2. Infalliable collections. In this case we should estimate its memory usage before allocation. Notice that this is managing memory by ourself, and we should not forget to free it in executor destruction.
+3. Data chunks. In fact, a large part of memory is used in buffering data chunks, so we need to add `Allocator` to array and array builders, and returns error when out of memory.
+
+With this approach, we can add memory constraints to batch executor one by one.
+
+Other memory usages are considered as system memory, and we still need to abort process when oom.
 
 ## Unresolved questions
 
-1. Although [this rfc][1] is approved, it's not in stable rust. There is no guarantee that all collections is aware of this behavior(panic of abort), and this may be unsound.
+1. With this design, we statically divide memory between different runtimes, e.g. batch/streaming runtime. This may lead to under utilizing memory usage.
 
-2. Currently the default behavior of panic is aborting, and this is used for health check in streaming engine. There are two ways to solve this issue:
+## Alternatives
 
-* Add true heartbeat mechanism for streaming health check.
-* Tokio runtime has provided [an unstable api](https://docs.rs/tokio/latest/tokio/runtime/struct.Builder.html#method.unhandled_panic) to customize unhandled panic, e.g. we can stop a runtime when panic happens. We can use this to stop streaming runtime when panic happens.
-
-# Alternatives
-
-For memory limitation, we may use other techniques, such as `try_reserve` method in collection api, or reserves an estimated size before true allocation happends. There are some problems with this approach:
-
-1. We will need much more effort than proposed approach.
-2. The estimation maybe difficult and inaccurate when collection alloc is not falliable.
-3. Since currently we don't want to work on fine grained resource management, there is nothing we can do when we catch the error except throwing away.
-4. The proposed approach is the server profile in [this rfc][1], which is similar to our current requirement.
+A panic based approach can be found here: <https://github.com/risingwavelabs/rfcs/pull/11/files#diff-044dd2e47982ff2f25e56eaa49e7b1b9b190ecc6308a74667a8a22fdb3178af8>
 
 ## Future possibilities
 
 Fine grained resource management.
-
-[1]: <https://rust-lang.github.io/rfcs/2116-alloc-me-maybe.html#additional-background-how-collections-handle-allocation-now>
-[2]: <https://github.com/rust-lang/rust/issues/51245>
