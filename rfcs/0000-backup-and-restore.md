@@ -17,6 +17,8 @@ A RisingWave cluster's persistent data includes metadata stored in meta store, a
 - For SSTable, we decide **not to replicate object store data** during backup. Instead, we only back up a SSTable manifest, which references to the same SSTable as the running cluster. See [SSTable Maintenance](#sstable-maintenance).
 - In addition, to support point-in-time recovery(PITR), we also back up metadata changes. See [Point-in-Time Recovery](#point-in-time-recovery).
 
+![](https://user-images.githubusercontent.com/70626450/201866284-923db172-89ff-423d-95e0-0e93bcde23da.png)
+
 ### Metadata Snapshot
 We leverage meta store's snapshot read to get a consistent cut of all interested metadata. Specifically with etcd meta store, we read using the same etcd revision during backing up.
 
