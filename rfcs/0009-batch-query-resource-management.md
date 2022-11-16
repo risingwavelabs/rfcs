@@ -48,7 +48,9 @@ Here we have following definitions:
 To collect batch task memory usages, we need to attach an Allocator for batch tasks to collect memory usage. There are three cases to consider here:
 
 1. Collections support allocation api.
+
 2. Collections not supporting allocation api. In this case we need to estimate the memory usage of these containers.
+
 3. Data chunks.
 
 Notice that we can't simply use atomic variable here, we should use [hytra](https://docs.rs/hytra/latest/hytra/) here to accumulate memory usage.
