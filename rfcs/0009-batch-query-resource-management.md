@@ -35,23 +35,31 @@ Based on above assumptions, we will introduce a cluster wide `max_concurrent_dis
 
 ### Limit number of memory used in batch query engine
 
-To avoid aborting in allocation failure, we will introduce a config `batch_query_max_memory`, which limits the number of memory used by all batch query executors on each compute node. To enforce this limitation, we need to pass an `Allocator` implementation to each executor, which internally uses an atomic number to count memory usage, and returns error when  There are several cases to consider when using `Allocator` in executor:
+To avoid exhausting memory in compute node, we will add two parameters to control the hehavior of batch task memory: `batch_task_low_memory_usage`,  `batch_task_high_memory_usage`. We will start a monitoring task, which periodically scans memory usage, and take following actions:
 
-1. Falliable collections. This is the eaiest case, and we should use `try_reserve`/`try_insert` api as mush as possible.
-2. Infalliable collections. In this case we should estimate its memory usage before allocation. Notice that this is managing memory by ourself, and we should not forget to free it in executor destruction.
-3. Data chunks. In fact, a large part of memory is used in buffering data chunks, so we need to add `Allocator` to array and array builders, and returns error when out of memory.
+![batch_mem_contro.drawio](../assets/batch_mem_control.drawio.svg)
 
-With this approach, we can add memory constraints to batch executor one by one.
+Here we have following definitions:
 
-Other memory usages are considered as system memory, and we still need to abort process when oom.
+*mem*: All memory used by batch tasks.
+*low_bar*: `batch_low_memory_usage`
+*high_bar*: `batch_high_memory_usage`
+
+To collect batch task memory usages, we need to attach an Allocator for batch tasks to collect memory usage. There are three cases to consider here:
+
+1. Collections support allocation api.
+2. Collections not supporting allocation api. In this case we need to estimate the memory usage of these containers.
+3. Data chunks.
+
+Notice that we can't simply use atomic variable here, we should use [hytra](https://docs.rs/hytra/latest/hytra/) here to accumulate memory usage.
 
 ## Unresolved questions
 
-1. With this design, we statically divide memory between different runtimes, e.g. batch/streaming runtime. This may lead to under utilizing memory usage.
+Why we need to collect batch tasks memory usage rather using process memory usage directly, since according to current streaming memory management design, we may starving batch tasks.
 
 ## Alternatives
 
-A panic based approach can be found here: <https://github.com/risingwavelabs/rfcs/pull/11/files#diff-044dd2e47982ff2f25e56eaa49e7b1b9b190ecc6308a74667a8a22fdb3178af8>
+1. A panic based approach can be found here: <https://github.com/risingwavelabs/rfcs/pull/11/files#diff-044dd2e47982ff2f25e56eaa49e7b1b9b190ecc6308a74667a8a22fdb3178af8>
 
 ## Future possibilities
 
