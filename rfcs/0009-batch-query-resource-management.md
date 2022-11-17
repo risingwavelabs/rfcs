@@ -35,15 +35,16 @@ Based on above assumptions, we will introduce a cluster wide `max_concurrent_dis
 
 ### Limit number of memory used in batch query engine
 
-To avoid exhausting memory in compute node, we will add two parameters to control the hehavior of batch task memory: `batch_task_low_memory_usage`,  `batch_task_high_memory_usage`. We will start a monitoring task, which periodically scans memory usage, and take following actions:
+To avoid exhausting memory in compute node, we will start a monitoring task, which periodically get memory usage, and take following actions:
 
 ![batch_mem_contro.drawio](../assets/batch_mem_control.drawio.svg)
 
 Here we have following definitions:
 
-*mem*: All memory used by batch tasks.
-*low_bar*: `batch_low_memory_usage`
-*high_bar*: `batch_high_memory_usage`
+*batch_mem_usage*: All memory used by batch tasks.
+*other_mem_usage*: Memory used by others, calculated by `system_mem_usage - batch_mem_usage`.
+*batch_task_mem*: A configuration specifying the percentage of memory that batch task can use.
+*system_safe_mem*: A configuration specifying the percentage of memory that's safe for current system, this can be same as streaming's `EVICTION_THRESHOLD_AGGRESSIVE`
 
 To collect batch task memory usages, we need to attach an Allocator for batch tasks to collect memory usage. There are three cases to consider here:
 
@@ -57,7 +58,7 @@ Notice that we can't simply use atomic variable here, we should use [hytra](http
 
 ## Unresolved questions
 
-Why we need to collect batch tasks memory usage rather using process memory usage directly, since according to current streaming memory management design, we may starving batch tasks.
+Why we need to collect batch tasks memory usage rather using process memory usage directly, since according to current streaming memory management design, we may starving batch tasks. Also this makes thing unpredictable and diffcult to explain to users.
 
 ## Alternatives
 
