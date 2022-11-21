@@ -9,7 +9,7 @@ start_date: "2022/11/21"
 
 ## Motivation
 
-As we know, our system is a streaming processing system which aims to provide real time low latency for our users. However, the current join ordering algorithm in our system can only construct a left deep tree shape join ordering which is not compatible with our low latency target, because our barriers need to go through the whole left deep tree to be collected. In order to reduce the barrier latency, I think we should minimize the height of our join tree to construct a bushy tree instead of a deep left tree.
+As we know, our system is a streaming processing system which aims to provide real time low latency for our users. However, the current join ordering algorithm in our system can only construct a left deep tree shape join ordering which is not compatible with our low latency target, because our barriers need to go through the whole left deep tree to be collected. In order to reduce the barrier latency, I think we should minimize the height of our join tree to construct a bushy tree instead of a left deep tree.
 
 ## Design
 
