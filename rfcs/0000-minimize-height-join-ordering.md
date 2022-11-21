@@ -1,0 +1,87 @@
+---
+feature: minimize_height_join_ordering
+authors:
+  - "Dylan Chen"
+start_date: "2022/11/21"
+---
+
+# Minimize Height Join Ordering
+
+## Motivation
+
+As we know, our system is a streaming processing system which aims to provide real time low latency for our users. However, current join ordering algorithm in our system can only construct a left deep tree shape join ordering which is not compatible with our low latency target, because our barriers need to go through the whole left deep tree to be collected. In order to reduce the barrier latency, I think we should minimize the height of our join tree to construct a bushy tree instead of left deep tree.
+
+## Design
+
+### Example
+
+Considering a exaple TPCH Q9:
+
+```sql
+select
+      nation,
+      o_year,
+      round(sum(amount), 2) as sum_profit
+    from
+      (
+        select
+          n_name as nation,
+          extract(year from o_orderdate) as o_year,
+          l_extendedprice * (1 - l_discount) - ps_supplycost * l_quantity as amount
+        from
+          lineitem,
+          part,
+          supplier,
+          partsupp,
+          orders,
+          nation
+        where
+          s_suppkey = l_suppkey
+          and ps_suppkey = l_suppkey
+          and ps_partkey = l_partkey
+          and p_partkey = l_partkey
+          and o_orderkey = l_orderkey
+          and s_nationkey = n_nationkey
+          and p_name like '%yellow%'
+      ) as profit
+    group by
+      nation,
+      o_year
+    order by
+      nation,
+      o_year desc;
+```
+
+There are 6 tables joining together. 
+
+Currently our system will give a left deep tree join ordering: lineitem, part, partsupp, supplier, orders, nation. The height of this left deep tree is 5.
+
+If we minimize the height of the join tree, we will construct a bushy tree join ordering: (part, partsupp), (lineitem, orders), (supplier, nation). The height of the bushy tree is 3.
+
+Theoretically, given n tables we can construct a bushy tree with height equaling the ceil of log2(n).
+
+
+### Algorithm
+
+```
+Input: A set of connected relations R = {R1, R2, ... RN}.
+Output: A join tree.
+
+T = R
+
+while |T| > 1 {
+  T = the smallest size partition of Set T with at most 2 relations 
+        (the relations need to be connected directly in the join graph) as its elements.
+}
+
+
+Return the only element of T.
+```
+
+Actually, when we enumerate the partition of the set T, we can do some branch and bound pruning, because we always know the lower bound of the smallest partition is `|T| / 2`. Once we reach this lower bound, we can stop current enumeration of the partition.
+
+Note: [Partition of a set](https://en.wikipedia.org/wiki/Partition_of_a_set)
+
+## Future possibilities
+
+Obviously, this algorithm uses the height of the join tree as its cost and doesn't rely on any statistics. If we have a volcano/cascade style in the future, we can also use the height as the cost of the join tree and use some join enumeration rule to achieve the same result to verify the new introduced optimizer.
