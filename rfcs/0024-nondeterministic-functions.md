@@ -55,6 +55,6 @@ We might can pull-up those `StreamMaterializeProject` to the first `Materialize`
 
 ```plain
 StreamMaterialize(columns:[rd, vv, pk], flag: check_and_modify)
-  StreamProject(exprs: [Random(), InputRef(0) * 2, InputRef(1)],)
+  StreamProject(exprs: [Random(), InputRef(0) * 2, InputRef(1)])
     StreamScan(fields:[v, pk])
 ```
