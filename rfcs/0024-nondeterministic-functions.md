@@ -1,8 +1,8 @@
 ---
-feature: non_deterministic-functions
+feature: non_deterministic_functions
 authors:
   - "st1page"
-start_date: "2022/10/24"
+start_date: "2022/11/21"
 ---
 
 # nondeterministic-functions
