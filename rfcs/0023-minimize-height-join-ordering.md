@@ -9,13 +9,13 @@ start_date: "2022/11/21"
 
 ## Motivation
 
-As we know, our system is a streaming processing system which aims to provide real time low latency for our users. However, current join ordering algorithm in our system can only construct a left deep tree shape join ordering which is not compatible with our low latency target, because our barriers need to go through the whole left deep tree to be collected. In order to reduce the barrier latency, I think we should minimize the height of our join tree to construct a bushy tree instead of left deep tree.
+As we know, our system is a streaming processing system which aims to provide real time low latency for our users. However, the current join ordering algorithm in our system can only construct a left deep tree shape join ordering which is not compatible with our low latency target, because our barriers need to go through the whole left deep tree to be collected. In order to reduce the barrier latency, I think we should minimize the height of our join tree to construct a bushy tree instead of a deep left tree.
 
 ## Design
 
 ### Example
 
-Considering a exaple TPCH Q9:
+Considering an example TPCH Q9:
 
 ```sql
 select
@@ -52,11 +52,18 @@ select
       o_year desc;
 ```
 
+<img width="553" alt="image" src="https://user-images.githubusercontent.com/9352536/202991729-f815a651-9e43-4548-bddb-5ffc88cc1fd6.png">
+
 There are 6 tables joining together. 
+
+<img width="1034" alt="image" src="https://user-images.githubusercontent.com/9352536/202991793-664ea3f9-3838-4e5f-af6c-e5416140ca40.png">
 
 Currently our system will give a left deep tree join ordering: lineitem, part, partsupp, supplier, orders, nation. The height of this left deep tree is 5.
 
+<img width="1036" alt="image" src="https://user-images.githubusercontent.com/9352536/202991855-998a6d28-a366-4120-8765-be3d5de20474.png">
+
 If we minimize the height of the join tree, we will construct a bushy tree join ordering: (part, partsupp), (lineitem, orders), (supplier, nation). The height of the bushy tree is 3.
+
 
 Theoretically, given n tables we can construct a bushy tree with height equaling the ceil of log2(n).
 
