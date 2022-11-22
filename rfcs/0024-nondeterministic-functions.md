@@ -25,12 +25,12 @@ StreamMaterialize(columns:[rd, vv, pk])
   StreamMaterializeProject(
       exprs: [Random(), InputRef(0) * 2, InputRef(1)],
       materialized_cols: [0],
-      state_table: [pk, rd]
+      state_table: (fields: [pk, rd], pk: [pk])
     )
     StreamScan(fields:[v, pk])
 ```
 
-The `StreamMaterializeProject` will materialize the first columns of its input which is the `random()` function's result. When we have a serial of changes `Insert(v = 10, pk = 1), Update((v = 10, pk = 1) -> (v = 20, pk = 1)), Delete(v = 20, pk = 1)` the `StreamMaterializeProject` will handle it as following:
+The `StreamMaterializeProject` will materialize the first columns of its input which is the `random()` function's result, the result of the project's non-deterministic function's results. When we have a serial of changes `Insert(v = 10, pk = 1), Update((v = 10, pk = 1) -> (v = 20, pk = 1)), Delete(v = 20, pk = 1)` the `StreamMaterializeProject` will handle it as following:
 
 1. receive `Insert(v = 10, pk = 1)`
     - comput the result `(rd = 111, v = 20, pk = 1)`
@@ -39,7 +39,7 @@ The `StreamMaterializeProject` will materialize the first columns of its input w
 
 2. receive `Update((v = 10, pk = 1) -> (v = 20, pk = 1))`
     - compute the old value's project result `(rd = 55555, v = 20, pk = 1)`
-    - get the old values `(pk = 1, rd = 111)` from state table modify the result old value to `(rd = 111, v = 10, pk = 1)`
+    - get the old values `(pk = 1, rd = 111)` from state table and modify the result old value from `(rd = 55555, v = 20, pk = 1)` to `(rd = 111, v = 10, pk = 1)`
     - compute the new value `(rd = 444, v = 30, pk = 1)`
     - insert into state table `(pk = 1, rd = 444)`
     - output `Update((rd = 111, v = 20, pk = 1) -> (rd = 444,v = 40, pk = 1))`
