@@ -52,7 +52,7 @@ select
       o_year desc;
 ```
 
-<img width="553" alt="image" src="https://user-images.githubusercontent.com/9352536/202991729-f815a651-9e43-4548-bddb-5ffc88cc1fd6.png">
+<img width="556" alt="image" src="https://user-images.githubusercontent.com/9352536/203251137-79026520-23ee-4080-ba4c-b1fe2581d7c0.png">
 
 There are 6 tables joining together. 
 
@@ -77,8 +77,7 @@ Output: A join tree.
 T = R
 
 while |T| > 1 {
-  T = the smallest size partition of Set T with at most 2 relations 
-        (the relations need to be connected directly in the join graph) as its elements.
+  T = the smallest size partition of the set T whose subsets have at most 2 elements and the 2 elements of the subset need to be connected directly in the join graph.
 }
 
 
@@ -88,6 +87,39 @@ Return the only element of T.
 Actually, when we enumerate the partition of the set T, we can do some branch and bound pruning, because we always know the lower bound of the smallest partition is `|T| / 2`. Once we reach this lower bound, we can stop current enumeration of the partition.
 
 Note: [Partition of a set](https://en.wikipedia.org/wiki/Partition_of_a_set)
+In mathematics, a partition of a set is a grouping of its elements into non-empty subsets, in such a way that every element is included in exactly one subset.
+
+Go through the algorithm with TPCH Q9.
+
+```
+1:  
+T = R = {lineitem, part, partsupp, supplier, orders, nation}
+possible partitions:
+partition1 = { part, partsupp | lineitem, orders | supplier, nation }.   // size = 3, winner.
+partition2 = { part, lineitem | orders | supppart | supplier, nation }.  // size = 4
+partition3 = { lineitem, supplier | part | supppart | orders | nation }. // size = 5
+partition4 = { lineitem | supplier | part | supppart | orders | nation }. // size = 6
+...
+
+2:
+T = { part join partsupp, lineitem join orders, supplier join nation }
+possible partitions:
+partition1 = { part join partsupp, lineitem join orders | supplier join nation } // size = 2, we choose first winner.
+partition2 = { part join partsupp, supplier join nation | lineitem join orders } // size = 2, winner too.
+partition3 = { part join partsupp | supplier join nation | lineitem join orders } // size = 3
+...
+
+3:
+T = { (part join partsupp) join (lineitem join orders), supplier join nation} 
+possible partitions:
+partition1 = { part join partsupp joinlineitem join orders, supplier join nation }  // size = 1, winner.
+partition1 = { part join partsupp joinlineitem join orders | supplier join nation } // size = 2
+
+4:
+T = { (part join partsupp) join (lineitem join orders) join (supplier join nation)} // final result.
+- 
+```
+
 
 ## Future possibilities
 
