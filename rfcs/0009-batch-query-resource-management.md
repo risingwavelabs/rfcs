@@ -20,7 +20,8 @@ When user executes complex sql in distributed mode in our system with huge amoun
 
 ### Non Goal
 
-There exists many different fine grained resource management strategies in industry, and the goal of this rfc is not to bring them into our system.
+* There exists many different fine grained resource management strategies in industry, and the goal of this rfc is not to bring them into our system.
+* We don't mean to provide perfect resource isolation here, just avoid exhausting memory.
 
 ## Design
 
