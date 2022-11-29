@@ -89,7 +89,7 @@ Then `free - reserved` is the memory size that could be borrowed by each other, 
 
 Why `reserved` is necessary? This is because we are using an async way to control memory i.e. with a background coroutine. As a result, **any actions will be slightly later than the actual exhaustion of memory**. The `reserved` memory is designed to mitigate the problem by reserving some space in case that memory cannot be reclaimed immediately.
 
-@fuyufjh prefer the solution without overselling to keep it simple and stupid.
+@fuyufjh prefers the solution without overselling to keep it simple and stupid.
 
 ## Implementation
 
