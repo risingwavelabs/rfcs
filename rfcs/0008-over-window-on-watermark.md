@@ -98,7 +98,7 @@ The implementation is trivial.
 
 ### StreamOverWindow
 
-The design highly depends on [the WatermarkFilter and StreamSort operator](https://github.com/risingwavelabs/rfcs/pull/1).
+The design highly depends on [the WatermarkFilter and StreamSort operator](https://github.com/risingwavelabs/rfcs/pull/2).
 
 If the input stream is ordered, then the implementation is trivial.
 
