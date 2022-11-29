@@ -59,7 +59,7 @@ Notice that the background coroutine works in an async style, that is, there is 
 
 ### Policy: Which component should give out memory?
 
-#### Without overselling
+#### Without Overselling
 
 2 straight-forward options are exposed to users:
 
@@ -70,7 +70,7 @@ Notice that the background coroutine works in an async style, that is, there is 
 
 Once the memory usage exceeds the limit, we run the actions to release some memory from streaming or batch.
 
-#### With overselling (optional)
+#### With Overselling (Optional)
 
 In total, there are `batch_memory_limit_mb + streaming_memory_limit_mb` for both streaming and batch executors. @liurenjie1024 proposes to utilize the memory space by allowing streaming and batch executors to use memory from each other, but must return it back immediately once the "owner" requires.
 
@@ -89,7 +89,7 @@ Why `reserved` is necessary? This is because we are using an async style way to 
 
 The "measure" part takes the most effort to implement. However, albeit not perfectly, we can do this in 2 stages:
 
-1. First, we implement the memory estimation for the batch engine, and the usage of streaming engine can be estimated by `total - batch`, where the `total` is the process-level usage from `jemalloc`.
+1. First, we implement the memory estimation for the batch engine, and the usage of the streaming engine can be estimated by `total - batch`, where the `total` is the process-level usage from `jemalloc`.
 2. Then, we implement the memory estimation for the streaming engine. This will make the numbers more accurate and also allows us to inspect the memory taken by each fragment/actor/executor. 
 
 
@@ -100,7 +100,7 @@ None
 
 ## Alternatives
 
-TODO
+None
 
 ## Future possibilities
 
