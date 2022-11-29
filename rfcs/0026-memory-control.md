@@ -53,7 +53,7 @@ A CN-level memory manager will collect the memory usage in a fixed interval like
 ### Action: How to release the memory?
 
 - **Streaming**: We have implemented a CN-level LRU Manager to control the watermark epoch of all stateful operators. Once memory usage reaches the limit, the watermark epoch will be increased to evict some least-recent entries. See [RFC: Yet another simple idea for memory management](https://singularity-data.quip.com/CldAAcFmzZSO/Yet-another-simple-idea-for-memory-management) for details.
-- **Batch**: We release the memory from batch queries by simply killing the queries with the largest memory consumption.
+- **Batch**: We release the memory from batch engine by simply killing 1 or more running queries with the largest memory consumption. The implementation of `kill()` should be identical to handling `Ctrl+C`. I think an `AtomicBool` can make it work.
 
 Notice that the background coroutine works in an async style, that is, there is no strict guarantee that a task must be killed **immediately** once the memory usage exceeds the limit. 
 
@@ -101,7 +101,7 @@ The "measure" part takes the most effort to implement. However, albeit not perfe
 
 ## Unresolved questions
 
-None
+
 
 
 ## Alternatives
