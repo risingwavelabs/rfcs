@@ -81,9 +81,13 @@ In total, there are `batch_memory_limit_mb + streaming_memory_limit_mb` for both
 
 ![](images/policy-with-overselling.drawio.svg)
 
-The `free - reserved` size could be borrowed by each other. For example, if `limit` of streaming is 500MB, within which 300MB has been `allocated`, and `reserved` is 100MB, then 200MB - 100MB = 100MB is allowed to be `overflowed` by batch.
+Then `free - reserved` is the memory size that could be borrowed by each other, denoted as `overflow`. For example, assuming `limit` of streaming is 500MB and `reserved` is 100MB:
 
-Why `reserved` is necessary? This is because we are using an async style way to manage memory i.e. with a background coroutine. As a result, **any actions will be later than the actual exhaustion of memory**. The `reserved` area is designed to mitigate the problem by reserving some space in case that memory cannot be reclaimed immediately.
+- If `allocated` = 0MB and `free` = 500MB, then `overflow` = 500MB - 100MB = 400MB
+- If `allocated` = 300MB and `free`= 200MB, then `overflow` = 200MB - 100MB = 100MB
+- If `allocated` = 450MB and `free`= 50MB, then `overflow` = 50MB - 100M = -50MB, so overflow is prohibited now
+
+Why `reserved` is necessary? This is because we are using an async way to control memory i.e. with a background coroutine. As a result, **any actions will be slightly later than the actual exhaustion of memory**. The `reserved` memory is designed to mitigate the problem by reserving some space in case that memory cannot be reclaimed immediately.
 
 ## Implementation
 
