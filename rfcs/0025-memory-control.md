@@ -32,7 +32,7 @@ Memory of compute node is a scarce resource. Due to the nature of streaming proc
 
 **This RFC will focus on the memory controlling on both streaming and batch executors**, assuming the storage, network buffer, system metadata, etc. always take a fixed size of memory.
 
-Our approach uses a background coroutine to continuously run the loop below:
+Our approach uses one background coroutine to continuously run the loop below (inspired by @yuhao-su):
 
 1. **Measure**: Get the current memory usage
 2. **Policy**: Decide whether and which component needs to release memory
