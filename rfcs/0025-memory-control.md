@@ -28,7 +28,7 @@ The streaming and batch executors should be isolated as far as possible. Specifi
 
 Memory of compute node is a scarce resource. Due to the nature of streaming processing, the memory will be sooner or later consumed out. Therefore, we need to limit the memory used by each component to prevent OOM (Out-of-Memory).
 
-![](images/overall-memory-allocation.png)
+![](images/overall-memory-allocation.drawio.svg)
 
 **This doc will focus on the memory control on both streaming and batch executors**, assuming the storage, network buffer, system metadata, etc. always take a fixed size of memory.
 
@@ -66,7 +66,7 @@ Notice that the background coroutine works in an asyncronized style, that is, th
 - `batch_memory_limit_mb`: The **upper bound** of memory consumed by batch executors
 - `streaming_memory_limit_mb`: The **upper bound** of memory consumed by streaming executors
 
-![](images/policy-without-overselling.png)
+![](images/policy-without-overselling.drawio.svg)
 
 Once the memory usage exceeds the limit, we run the actions to release some memory from streaming or batch.
 
@@ -79,7 +79,7 @@ In total, there are `batch_memory_limit_mb + streaming_memory_limit_mb` for both
 - `batch_memory_reserved_mb`: The memory that must be reserved for batch no matter whether it's free. Must be `<= batch_memory_limit_mb`
 - `streaming_memory_reserved_mb`: The memory that must be reserved for streaming no matter whether it's free. Must be `<= streaming_memory_limit_mb`
 
-![](images/policy-with-overselling.png)
+![](images/policy-with-overselling.drawio.svg)
 
 The `free - reserved` size could be borrowed by each other. For example, if `limit` of streaming is 500MB, within which 300MB has been `allocated`, and `reserved` is 100MB, then 200MB - 100MB = 100MB is allows to be `overflowed` by batch.
 
