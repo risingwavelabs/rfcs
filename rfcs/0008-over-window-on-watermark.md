@@ -69,12 +69,12 @@ Limit to the watermark design, we can only support a part of window functions th
 * ntile ( num_buckets integer ) → integer
 * lag ( value anycompatible [, offset integer [, default anycompatible ]] ) → anycompatible
 * first_value ( value anyelement ) → anyelement
-* last_value ( value anyelement ) → anyelement
-* nth_value ( value anyelement, n integer ) → anyelement
 
 We'll not support the following window functions:
 
 * lead ( value anycompatible [, offset integer [, default anycompatible ]] ) → anycompatible
+* last_value ( value anyelement ) → anyelement
+* nth_value ( value anyelement, n integer ) → anyelement
 
 ## Motivation
 
