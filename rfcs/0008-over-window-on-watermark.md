@@ -20,6 +20,10 @@ Note: We'll only implement a limited OverWindow based on watermark strategy.
 
 ## Definitions
 
+### Syntax
+
+We can find the original definitions in [PostgreSQL's doc](https://www.postgresql.org/docs/current/sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS), and we will only implement a subset.
+
 Window function call:
 
 ```plain
@@ -29,7 +33,7 @@ function_name ( * ) [ FILTER ( WHERE filter_clause ) ] OVER window_name
 function_name ( * ) [ FILTER ( WHERE filter_clause ) ] OVER ( window_definition )
 ```
 
-window_definition: only a column_ref is supported in the `ORDER BY` clause.
+window_definition
 
 ```plain
 [ existing_window_name ]
@@ -38,11 +42,39 @@ window_definition: only a column_ref is supported in the `ORDER BY` clause.
 [ frame_clause ]
 ```
 
-frame_clause: only `ROWS` is supported in our first version, and `BETWEEN` is necessary.
+frame_clause:
 
 ```plain
 ROWS BETWEEN frame_start AND frame_end
+RANGE BETWEEN frame_start AND frame_end
 ```
+
+where frame_start and frame_end can be one of
+
+```sql
+UNBOUNDED PRECEDING
+offset PRECEDING
+CURRENT ROW
+```
+
+### Window functions
+
+Limit to the watermark design, we can only support a part of window functions that don't need to lookup future rows.
+
+* row_number () → bigint
+* rank () → bigint
+* dense_rank () → bigint
+* percent_rank () → double precision
+* cume_dist () → double precision
+* ntile ( num_buckets integer ) → integer
+* lag ( value anycompatible [, offset integer [, default anycompatible ]] ) → anycompatible
+* first_value ( value anyelement ) → anyelement
+* last_value ( value anyelement ) → anyelement
+* nth_value ( value anyelement, n integer ) → anyelement
+
+We'll not support the following window functions:
+
+* lead ( value anycompatible [, offset integer [, default anycompatible ]] ) → anycompatible
 
 ## Motivation
 
@@ -82,11 +114,3 @@ There are some limitations in stream aggregation:
 ### Future records lookup
 
 We can support `FOLLOWING` and `lag` by buffering some records or emitting a `NULL` downstream and updating them later. We can discuss them later.
-
-## Future possibilities
-
-### Two-phase OverWindow
-
-If the `PARTITION BY` clause is not specified, we can only use a singleton to maintain the materialized view, which may be the bottleneck of the whole DAG graph. We can do two-phase optimization like how we do that in [two-phase aggregation](https://singularity-data.quip.com/KtaRA6CspqRK/RFC-2-Phase-Agg-TopN-Operator-in-Streaming).
-
-However, too many window aggregators can't be implemented, e.g., `lead`.
