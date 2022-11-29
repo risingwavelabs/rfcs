@@ -72,7 +72,7 @@ Once the memory usage exceeds the limit, we run the actions to release some memo
 
 #### With Overselling (Optional)
 
-In total, there are `batch_memory_limit_mb + streaming_memory_limit_mb` for both streaming and batch executors. @liurenjie1024 proposes to utilize the memory space by allowing streaming and batch executors to use memory from each other, but must return it back immediately once the "owner" requires.
+In total, there are `batch_memory_limit_mb + streaming_memory_limit_mb` for both streaming and batch executors. @liurenjie1024 proposed to utilize the memory space by allowing streaming and batch executors to use memory from each other, but must return it back immediately once the "owner" requires.
 
 2 additional parameters need to be introduced:
 
@@ -88,6 +88,8 @@ Then `free - reserved` is the memory size that could be borrowed by each other, 
 - If `allocated` = 450MB and `free`= 50MB, then `overflow` = 50MB - 100M = -50MB, so overflow is prohibited now
 
 Why `reserved` is necessary? This is because we are using an async way to control memory i.e. with a background coroutine. As a result, **any actions will be slightly later than the actual exhaustion of memory**. The `reserved` memory is designed to mitigate the problem by reserving some space in case that memory cannot be reclaimed immediately.
+
+@fuyufjh prefer the solution without overselling to keep it simple and stupid.
 
 ## Implementation
 
