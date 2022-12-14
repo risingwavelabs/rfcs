@@ -22,21 +22,32 @@ The RFC will not answer the following questions:
 
 ## Design
 
-### External function protocol
+### Arrow Flight Protocol
 
-We will add a simple protocol for external function servers to implement:
+We will use [Arrow Flight RPC](https://arrow.apache.org/docs/format/Flight.html#protocol-buffer-definitions) as the external function protocol.
 
-```protobuf
-message BatchExternalUdfRequest {
-    repeated bytes columns = 1;
-}
+```mermaid
+sequenceDiagram
+    participant M as meta
+    participant FE as frontend node
+    participant CN as compute node
+    participant CP as coprocessor
 
-message BatchExternalUdfResponse {
-    bytes result = 1;
-}
+    FE ->> M: GetUdfInfo(name)
+    CN ->> FE: UdfInfo(schema)
+    FE ->> CN: CreateActors(name, schema)
+    Note over CN: Initialize actors
+    CN ->> CP: GetFlightInfo(path=[name])
+    Note over CP: Generate a random flight ID<br/>(or use different ports here?)
+    CP ->> CN: FlightInfo(location="/{flight_id}")
+    CN ->> CP: client = DoExchange(descriptor=flight_id)
+    loop streaming data
+        CN ->> CP: client.send(input_chunk)
+        CP ->> CN: output_chuunk
+    end
 ```
 
-Both args and return values should be encoded by [Apache Arrow](https://arrow.apache.org/docs/format/Columnar.html) format so we can interact with different languages/frameworks without losing performance. We can do it later and introduce a breaking change.
+We can reuse many arrow infrastructures when implementing the coprocessor.
 
 #### Non-batch API?
 
