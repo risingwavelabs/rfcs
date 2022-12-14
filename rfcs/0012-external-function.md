@@ -93,10 +93,6 @@ However, expressions with short-circuit optimization should evaluate their argum
 SELECT udf1(x) && udf2(y) && udf3(z) FROM t;
 ```
 
-#### pg_sleep?
-
-BTW, previously, we removed a built-in async expression `pg_sleep`. We won't add it back even after implementing the async expression framework because its semantics will break many concurrency possibilities.
-
 ### Cross-chunk concurrency
 
 Concurrency between expressions is not enough for some cases, so we should also handle chunks concurrently.
