@@ -40,6 +40,8 @@ Our approach uses one background coroutine to continuously run the loop below (i
 
 ### Measure: How to measure memory usage?
 
+<details>
+<summary>Deprecated: Estimate memory usage</summary>
 Here we propose to use the simple and stupid way to calculate the memory usage - **estimating** the memory consumed by all the in-memory data structures and aggregating in levels. This is opposite to the solutions that rely on memory allocators to get an exact memory usage.
 
 How to estimate memory usage depends on the data structures:
@@ -49,6 +51,13 @@ How to estimate memory usage depends on the data structures:
 - For pure data structures like `DataChunk`, `Vec<Datum>`, etc., we could compute the exact size it used by summing up the sizes of internal arrays & variables as well as padding and other overhead.
 
 A CN-level memory manager will collect the memory usage in a fixed interval like 100ms. It collects the memory recursively regarding the hierarchy: stream/batch -> fragments -> actors -> executors. To simplify the ownership, executors' memory usage can be stored in `AtomicUsize` and be updated by executors on every `next()`.
+</details>
+
+We continue to work on `TaskLocalAlloc` ([PR #4785](https://github.com/risingwavelabs/risingwave/pull/4785)) and use it to get the coroutine (actor) level memory statistics.
+
+The basic idea of `TaskLocalAlloc` is to associate an extra 8-byte pointer for every heap object to a shared atomic counter, which stores the total memory usage of this coroutine. So that even if an object is passed from actor A to actor B, the memory usage is still counted to A and will be deducted from A's memory usage once being dropped.
+
+Through this way, we can get the memory usage of tasks (in terms of batch) or actors (in terms of streaming), and then aggregate them on the query level and the node level. Executor-level statistics are unavailable under this approach, but luckily it is not necessary for our overall memory management design.
 
 ### Action: How to release the memory?
 
