@@ -32,16 +32,17 @@ To implement the S3 data source, an abstraction of the file system data source i
 - Split
 
   ```rust
-  **pub struct FsSplit {
+  pub struct FsSplit {
       pub name: String,
       pub offset: usize,
       pub size: usize,
-  }**
+  }
   ```
+  The `S3SplitEnumerator` will list all objects in a bucket. Now, the interval between two invocations to `list_splits` is 10s, is this value suitable for fs source?
 
 - Split reader
 
-  A `FsSplitReader` trait. The reader will reader all  `splits` passed to it and keeps yielding `FsSourceMessage`. The `FsSourceMessage` contains the `split_size`  to remind source if a split has been finished (Another possible approach is to yield a message with an empty payload after each object has been read).
+  A `FsSplitReader` trait. The reader will reader all  `splits` passed to it and keeps yielding `FsSourceMessage`. The `FsSourceMessage` contains the `split_size`  to remind source if a split has been finished (Another possible approach is to yield a message with an empty payload after each object has finished).
 
   ```rust
   #[async_trait]
