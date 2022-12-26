@@ -26,17 +26,29 @@ A general nested-loop join in streaming query is known as inefficient join imple
 
 ## Design
 
-Band join can contain more than one range condition, generally if it contains k range conditions we call it k dimensions band join. By the way, band join can also contain equal conditions. If the equal conditions of the band join with poor selectivity we can still use `BandJoin` to optimize it, otherwise a `HashJoin` is enough. 
+### Streaming
+
+![](./images/0032-band-join/band-join.png)
+
+For simplicity, we consider the following query first.
+```sql
+select * from A join B on A.p between B.d - 10 and B.d + 20.
+```
+
+- We can use singleton for both input sides or broadcast one side to the other side. We will construct an internal table for A side with order key = `A.p, A.rid` and for B side with order key = `B.d, B.rid`.
+- We can reverse the condition `A.p between B.d - 10 and B.d + 20` into `B.d between A.p - 20 and Ap.p + 10`.
+- Suppose we already have 3 rows for A side (10, 10001), (20, 10002), (30, 10003) and 3 rows for B side (5, 20001), (15, 20002), (45, 20003).
+- When A side row changed comes with +(15, 10004), we need to search B side with condition `B.d between 15 - 20 = -5 and 15 + 10 = 25`, so B side row (5 , 20001) and (15, 20002) matched and return.
+- When A side row change comes with -(20, 10002), we need to search B side with condition `B.d between 20 - 20 = 0 and 20 + 10 = 30`, so B side row (5 , 20001) and (15, 20002) matched and return.
+
+
+Band join can contain more than one range condition, generally if it contains k range conditions we call it k dimensions band join. By the way, band join can also contain equal conditions. If the equal conditions of the band join with poor selectivity we can still use `BandJoin` to optimize it, otherwise a `HashJoin` is enough.
 
 Without loss of generality, we will consider the following query.
 
 ```sql
 select * from A join B on A.a = B.b and A.p between B.d - 10 and B.d + 20 and A.q between B.e - 5 and B.e + 15.
 ```
-
-### Streaming
-
-![](./images/0032-band-join/band-join.png)
 
 - If we have an equal condition `A.a = B.b` and its selectivity is low, using `HashJoin` is enough.
 - If we have an equal condition `A.a = B.b` and its selectivity is high, we can use this condition to distribute the data to acquire parallelism. For `A.p between B.d - 10 and B.d + 20`, we can construct an internal table with order key = `A.a, A.p, A.rid` for A side and order key `B.b, B.d, B.rid` for B side. For `A.q between B.e - 10 and B.e + 20`, we can construct an internal table with order key = `A.a, A.q, A.rid` for A side and order key `B.b, B.e, B.rid` for B side. When a row came from B with (B.b, B.d, B.e) = (100, 200, 300). We can lookup A's internal table row ids with range queries: A between (A.a = 100, A.p = 200 - 10 = 190) and (A.a = 100, A.p = 200 + 20 = 220). Merge the other A's internal table row ids with range queries: A between (A.a = 100, A.q = 300 - 5 = 295) and (A.a = 100, A.p = 200 + 15 = 315). Finally we can intersect the row ids to get the corresponding A matched rows. When a row comes from A, we first need to reverse the range condition as we mentioned before and then do the same logic as for row came from B. Row deleted is basically equivalent to the insertion, but with opposed operators. Update can be handled as delete followed by insert.
