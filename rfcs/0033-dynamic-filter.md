@@ -21,7 +21,7 @@ order by value desc;
 
 ```
 LogicalProject { exprs: [$0, $1] }
-  LogicalJoin { type: Inner, on: ($2 > $3) }
+  LogicalJoin { type: Inner, on: ($2 > $3) } <-- Attention!
     LogicalAgg { group_keys: [0], agg_calls: [sum($1), sum($1)] }
       LogicalProject { exprs: [$0, ($2 * $1)] }
         LogicalJoin { type: Inner, on: ($3 = $4) }
