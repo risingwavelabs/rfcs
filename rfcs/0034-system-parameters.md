@@ -1,11 +1,11 @@
 ---
-feature: system-settings
+feature: system-parameters
 authors:
   - "Eric Fu"
 start_date: "2023/01/11"
 ---
 
-# RFC: System Settings on Meta
+# RFC: System Parameters on Meta
 
 ## Motivation
 
@@ -20,7 +20,7 @@ Currently, we have 2 kinds of configurations:
 
 However, this is not a complete solution because
 
-1. `**risingwave.toml` is a local file**, which makes it possible that multiple nodes see different parameters and this absolutely unacceptable. For example, some nodes use `data_directory = 'hummock_001'` and others use `data_directory = 'hummock_002'`, the cluster must be crashed.
+1. **`risingwave.toml` is a local file**, which makes it possible that multiple nodes see different parameters and this absolutely unacceptable. For example, some nodes use `data_directory = 'hummock_001'` and others use `data_directory = 'hummock_002'`, the cluster must be crashed.
 2. **Unable to `SET` a config after the process started**. Even if changes are written to disk, new nodes still miss these changes.
 
 This proposal will continue to improve the configuration mechanism but also repudiate the design of #5676.
