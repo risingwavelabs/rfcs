@@ -17,7 +17,7 @@ Currently, we have 3 kinds of configurations:
 
 These can not meet the requirements for several reasons.
 
-1. **Consistency**. `risingwave.toml` is a local file, which makes it possible that multiple nodes could see different parameters and this is absolutely unacceptable. For example, if some nodes use `data_directory = 'hummock_001'` and others use `data_directory = 'hummock_002'`, the stored data will be corrupted.
+1. **Consistency**. `risingwave.toml` is a local file, which makes it possible that multiple nodes could see different parameters and this is absolutely unacceptable. For example, to configure the remote directory for storing data, users may use the `data_directory` parameter. If some nodes use `data_directory = 'hummock_001'` and others use `data_directory = 'hummock_002'`, the stored data will be corrupted.
 2. **Mutability**. Users are unable to `SET` a config after the process started. The root cause is still the local file - changes of configs must be persisted in some cluster-level storage.
 
 This RFC proposes to introduce centralized configurations on Meta Service and data will be persisted in etcd.
