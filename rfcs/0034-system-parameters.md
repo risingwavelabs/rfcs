@@ -5,27 +5,26 @@ authors:
 start_date: "2023/01/11"
 ---
 
-# RFC: System Parameters on Meta
+# RFC: System Parameters
 
 ## Motivation
 
-Currently, we have 2 kinds of configurations:
+Currently, we have 3 kinds of configurations:
 
 - Command-line arguments
 - Configuration file `risingwave.toml`
+- Session parameters
 
-[Distinguish system config variables and cli options #5676](https://github.com/risingwavelabs/risingwave/issues/5676) clarifies the difference between CLI args and config file:
+These can not meet the requirements for several reasons.
 
-> Intuitively, *Options* should contain basic user-facing options, e.g., addr & host and maybe some feature gates, while *Config* contains deep-dark internal system variables to fine-tune the system performance.
+1. **Consistency**. `risingwave.toml` is a local file, which makes it possible that multiple nodes could see different parameters and this is absolutely unacceptable. For example, if some nodes use `data_directory = 'hummock_001'` and others use `data_directory = 'hummock_002'`, the stored data will be corrupted.
+2. **Mutability**. Users are unable to `SET` a config after the process started. The root cause is still the local file - changes of configs must be persisted in some cluster-level storage.
 
-However, this is not a complete solution because
+This RFC proposes to introduce centralized configurations on Meta Service and data will be persisted in etcd.
 
-1. **`risingwave.toml` is a local file**, which makes it possible that multiple nodes could see different parameters and this is absolutely unacceptable. For example, if some nodes use `data_directory = 'hummock_001'` and others use `data_directory = 'hummock_002'`, the stored data will be corrupted.
-2. **Unable to `SET` a config after the process started**. Even if changes are written to disk, new nodes still miss these changes.
+For the sake of clarity, in this doc, we will use the word "parameters" for system and session parameters, and "config" for command-line arguments or config files.
 
-This proposal will continue to improve the configuration mechanism but also repudiate the design of #5676.
-
-Previously I think this might not be an urgent issue until I realized that our Cloud platform couples tightly with more and more configurations. The later we commence, the heavier burden it will become. 
+**Note:** Previously I think this might not be an urgent issue until I realized that our Cloud platform couples tightly with more and more configurations. The later we commence, the heavier burden it will become. 
 
 ## Design
 
@@ -33,14 +32,14 @@ Previously I think this might not be an urgent issue until I realized that our C
 graph LR
     all[Does it apply to the RisingWave instance?]
     all ==No==> process["Process Configs (Local)"]
-    all ==Yes==> system["System Configs (on Meta)"]
+    all ==Yes==> system["System Parameters (on Meta)"]
     process --> cli_args(Command-line arguments)
     process --> conf_file("Config file (.toml)")
     system --> sql_cmd(SQL interface: SET / SHOW)
     system --> cloud(Web Console)
 ```
 
-### System Configs
+### System Parameters
 
 What we need is a centralized source-of-truth of cluster configurations. Obviously, the best choice for RisingWave is the Meta Service and the underlying etcd. 
 
@@ -57,7 +56,7 @@ SHOW PARAMETERS;
 > NOTE: PG uses `SHOW ALL` because it doesn't has other `SHOW` commands like us. Which one is better?
 
 
-See also: 
+References:
 
 - [PostgreSQL: Documentation: 15: ALTER SYSTEM](https://www.postgresql.org/docs/current/sql-altersystem.html)
 - [PostgreSQL: Documentation: 15: 20.1. Setting Parameters](https://www.postgresql.org/docs/current/config-setting.html)
@@ -70,15 +69,34 @@ Similar to other system metadata e.g. catalog,
 
 Therefore, the Notification Service seems to fit the scene well.
 
-### Process-level Configs
+### Session Parameters
 
-Given the existance of System Config, how to design the machine/process-level CLI options and config file? We propose to **unify** them because local parameters are still too many to be written as CLI options. (See [example.toml](https://github.com/risingwavelabs/risingwave/blob/main/src/config/example.toml)) 
+PostgreSQL allows users to set parameters for the current session as well.
+
+```sql
+SET parameter TO value / 'value' / DEFAULT;
+```
+
+References:
+
+- [PostgreSQL: Documentation: 15: 20.1. Setting Parameters](https://www.postgresql.org/docs/current/config-setting.html)
+
+Previously, we had already introduced [session parameters in RisingWave](https://github.com/risingwavelabs/risingwave/blob/53f7e0db772ac7e51773791bb8301624ed763ae8/src/common/src/session_config/mod.rs#L265). Some of them can also be system parameters like `batch_enable_sort_agg` or `query_mode`. Postgres enforces that session parameters must also be system paramters, we can follow this rule as well.
+
+### Process Configs
+
+Let's rethink the current design of CLI options and config files. ([#5676](https://github.com/risingwavelabs/risingwave/issues/5676)) Given the existence of system parameters, some existing parameters may need to be moved to system parameters, like `data_directory` as mentioned before.
+
+We propose to **treat** CLI options as a way to override config files, as a result, the items in CLI options are a subset of the config file. The reasons for this include
+
+- All configs are still too many to be written as CLI options. (See [example.toml](https://github.com/risingwavelabs/risingwave/blob/main/src/config/example.toml)) 
+- While CLI configs are handy to set some frequently-used options like endpoint and memory.
 
 This pattern is widely adopted in many databases and even other applications. For example, TiDB considers configuration file as a superset of CLI options:
 
-> The TiDB configuration file supports more options than command-line parameters. You can download the default configuration file `[config.toml.example](https://github.com/pingcap/tidb/blob/master/config/config.toml.example)` and rename it to `config.toml`. This document describes only the options that are not involved in [command line options](https://docs.pingcap.com/tidb/stable/command-line-flags-for-tidb-configuration).
+> The TiDB configuration file supports more options than command-line parameters. You can download the default configuration file [config.toml.example](https://github.com/pingcap/tidb/blob/master/config/config.toml.example) and rename it to `config.toml`. This document describes only the options that are not involved in [command line options](https://docs.pingcap.com/tidb/stable/command-line-flags-for-tidb-configuration).
 >
-> 🔗 [TiDB Configuration File | PingCAP Docs](https://docs.pingcap.com/tidb/stable/tidb-configuration-file)
+> Ref. [TiDB Configuration File | PingCAP Docs](https://docs.pingcap.com/tidb/stable/tidb-configuration-file)
 
 In RisingWave it will be like
 
@@ -97,7 +115,6 @@ block_size_kb = 1024
 # Override total_memory_bytes as 2GB
 ./risingwave compute-node --total-memory-bytes=2147483648
 ```
-
 
 ### Mutability
 
