@@ -16,10 +16,24 @@ A connection is used to describe how to connect to an external system that users
 ### Syntax
 
 ```sql
+-- create connection
 CREATE CONNECTION (IF NOT EXIST) {{ connection_name }}
   TO {{ connection_type }}
   ( {{ field }} = {{ value }}, ...);
+
+-- create source with connection
+CREATE SOURCE {{ source_name }} ( {{ field }} = {{ value }}, ... )
+  FROM CONNECTION {{ connection_name }}
+  with ( {{ field }} = {{ value }}, ...);
+
+-- create sink with connection
+CREATE SINK {{ sink_name }} ( {{ field }} = {{ value }}, ... )
+  FROM {{ source_name }}
+  INTO CONNECTION {{ connection_name }}
+  with ( {{ field }} = {{ value }}, ...);
 ```
+
+If any field is specified both in `with` clause and `CREATE CONNECTION` statement, the value in `with` clause will be used.
 
 #### AWS Private Link
 
