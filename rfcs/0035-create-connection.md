@@ -73,7 +73,7 @@ CREATE CONNECTION demo_connection_1 TO KAFKA
   (PROPERTIES.BOOTSTRAP.SERVER = 'broker1:9092,broker2:9092');
 
 CREATE CONNECTION demo_connection_2 TO KAFKA
-  (PROPERTIES.BOOTSTRAP.SERVER.PRIVATE_LINK = ['broker1:9092' USING AWS_PRIVATE_LINK link_name (PORT 9092), 'broker2:9092' USING AWS_PRIVATE_LINK link_name (PORT 9092)]];
+  (PROPERTIES.BOOTSTRAP.SERVER.PRIVATE_LINK = ['broker1:9092' USING AWS_PRIVATE_LINK {{ connection_name }} (PORT 9092), 'broker2:9092' USING AWS_PRIVATE_LINK {{ connection_name }} (PORT 9092)]];
 ```
 
 For general usage, the following fields are allowed:
