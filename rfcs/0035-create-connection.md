@@ -18,19 +18,22 @@ A connection is used to describe how to connect to an external system that users
 ```sql
 -- create connection
 CREATE CONNECTION (IF NOT EXIST) {{ connection_name }}
-  TO {{ connection_type }}
-  ( {{ field }} = {{ value }}, ...);
+  with ( 
+    connection_type = '{{ connection_type }}',
+    {{ field }} = {{ value }}, ...);
 
 -- create source with connection
 CREATE SOURCE {{ source_name }} ( {{ field }} = {{ value }}, ... )
-  FROM CONNECTION {{ connection_name }}
-  with ( {{ field }} = {{ value }}, ...);
+  with ( 
+    connection = '{{ connection_name }}',
+    {{ field }} = {{ value }}, ...);
 
 -- create sink with connection
 CREATE SINK {{ sink_name }} ( {{ field }} = {{ value }}, ... )
   FROM {{ source_name }}
-  INTO CONNECTION {{ connection_name }}
-  with ( {{ field }} = {{ value }}, ...);
+  with ( 
+    connection = '{{ connection_name }}',
+    {{ field }} = {{ value }}, ...);
 ```
 
 If any field is specified both in `with` clause and `CREATE CONNECTION` statement, the value in `with` clause will be used.
@@ -40,40 +43,37 @@ If any field is specified both in `with` clause and `CREATE CONNECTION` statemen
 An AWS Private Link establishes a private connection between a VPC and a service hosted on AWS. It is a secure and scalable way to connect to AWS services from within a VPC. The following fields are required to create an AWS Private Link connection:
 
 ```sql
-CREATE CONNECTION demo_connection TO AWS_PRIVATE_LINK
-  (SERVICE NAME = 'com.amazonaws.vpce.us-east-1.vpce-svc-xxxxxxxxxxxxxxxxx',
-  AVAILABILITY ZONES = array('us-east-1a', 'us-east-1b', 'us-east-1c');
+CREATE CONNECTION demo_connection
+  with (
+    connection_type = 'aws_private_link',
+    service_name = 'com.amazonaws.vpce.us-east-1.vpce-svc-xxxxxxxxxxxxxxxxx',
+    availability_zones = 'us-east-1a,us-east-1b,us-east-1c');
 ```
 
 |Field|Value|Required|Description|
 |--|--|--|--|
 |`SERVICE NAME`| varchar | yes | The name of the AWS PrivateLink service. |
-|`AVAILABILITY ZONES`| varchar[] | yes | The AWS availability zones in which the service is accessible. |
+|`AVAILABILITY ZONES`| varchar | yes | The AWS availability zones in which the service is accessible. Listing the zones in a string, separated by comma. |
 
 > **Notice**:
 >
 > * After creating a connection, users must manually approve the connection from a Risingwave VPC in AWS console.
 > * When creating a private link to AWS MSK, users must fill in all availability zones of the MSK cluster.
 
-##### Internal table for AWS Private Link
-
-The `rw_aws_private_link` table stores the information of the AWS Private Link connection. The following fields are stored in the table:
-
-|Field|Value|Description|
-|--|--|--|
-|`id`| varchar | The name of the connection. |
-|`principle`| varchar | The AWS Principal that Risingwave will use to connect to the VPC endpoint. |
-
 #### Kafka
 
 A Kafka connection establishes a link to a Kafka cluster. Users can use Kafka connections to create Kafka sources and sinks. The following fields are required to create a Kafka connection:
 
 ```sql
-CREATE CONNECTION demo_connection_1 TO KAFKA
-  (PROPERTIES.BOOTSTRAP.SERVER = 'broker1:9092,broker2:9092');
+CREATE CONNECTION demo_connection_1
+  with (
+    connection_type = 'kafka',
+    PROPERTIES.BOOTSTRAP.SERVER = 'broker1:9092,broker2:9092');
 
-CREATE CONNECTION demo_connection_2 TO KAFKA
-  (PROPERTIES.BOOTSTRAP.SERVER.PRIVATE_LINK = ['broker1:9092' USING AWS_PRIVATE_LINK {{ connection_name }} (PORT 9092), 'broker2:9092' USING AWS_PRIVATE_LINK {{ connection_name }} (PORT 9092)]];
+CREATE CONNECTION demo_connection_2
+  with (
+    connection_type = 'kafka',
+    PROPERTIES.BOOTSTRAP.SERVER.PRIVATE_LINK = ['broker1:9092' USING AWS_PRIVATE_LINK {{ connection_name }} (PORT 9092), 'broker2:9092' USING AWS_PRIVATE_LINK {{ connection_name }} (PORT 9092)]];
 ```
 
 For general usage, the following fields are allowed:
@@ -98,11 +98,13 @@ For security related fields (SSL/SASL), the fields are identical to [this doc](h
 A Kinesis connection establishes a link to a Kinesis stream. Users can use Kinesis connections to create Kinesis sources and sinks. The following fields are required to create a Kinesis connection:
 
 ```sql
-CREATE CONNECTION demo_connection TO KINESIS
-  (aws.region='user_test_topic',
-   endpoint='172.10.1.1:9090,172.10.1.2:9090',
-   aws.credentials.role.arn='arn:aws-cn:iam::602389639824:role/demo_role',
-   aws.credentials.role.external_id='demo_external_id',
+CREATE CONNECTION demo_connection
+  with (
+    connection_type = 'kinesis',
+    aws.region='user_test_topic',
+    endpoint='172.10.1.1:9090,172.10.1.2:9090',
+    aws.credentials.role.arn='arn:aws-cn:iam::602389639824:role/demo_role',
+    aws.credentials.role.external_id='demo_external_id',
    ...
   );
 ```
@@ -124,16 +126,18 @@ Accepted fields are listed below, which is a subset of [the doc](https://www.ris
 #### Pulsar
 
 ```sql
-CREATE CONNECTION demo_connection TO PULSAR
-  (service.url = 'pulsar://localhost:6650/',
-  admin.url='http://localhost:8080',);
+CREATE CONNECTION demo_connection
+  with (
+    connection_type = 'pulsar',
+    service.url = 'pulsar://localhost:6650/',
+    admin.url='http://localhost:8080',);
 ```
 
 The accepted fields are listed below, which is a subset of [the doc](https://www.risingwave.dev/docs/current/create-source-pulsar/#parameters).
 
 |Field|Required|Description|
 |--|--|--|
-|`service.url`| Required| Address of the Pulsar service.	|
+|`service.url`| Required| Address of the Pulsar service.|
 |`admin.url`|Required| Address of the Pulsar admin.|
 
 **Notice**: Risingwave will not check the connection to Pulsar is valid or not.
