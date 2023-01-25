@@ -21,10 +21,10 @@ Following the process:
 3. Fill in the RFC. Most template sections are optional, but don't forget to update the info in the front matter.
 4. Submit a pull request to the repo.
 5. Use the pull request number as your RFC number, then update the filename prefix.
-6. Team members will comment on your RFC PR and hold an RFC meeting about that.
-7. If your RFC is accepted, the team member will add a label `status/accepted`.
+6. Team members will comment on your RFC PR and hold an RFC meeting about that. After the meeting, a member should post a meeting summary on the PR.
+7. If a consensus is reached among the team, a member should leave a comment to clarify the status of the RFC as accepted and add a label `status/accepted`. Remaining unresolved but not planned issues should also be summarized, if there's any.
 8. Create a tracking issue and start your implementation.
-9. During your implementation, minor changes to the RFC are allowed.
+9. It is allowed if the implementation contains minor differences from the RFC. The RFC should be updated correspondingly.
 10. After your implementation is merged into [RisingWave][risingwave], you can merge the RFC.
 
 ## The RFC life-cycle
