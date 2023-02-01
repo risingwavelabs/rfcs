@@ -5,6 +5,9 @@ authors:
 start_date: "2022/12/01"
 ---
 
+[![](https://img.shields.io/crates/v/pretty-xmlish)](https://lib.rs/pretty-xmlish)
+[![](https://img.shields.io/docsrs/pretty-xmlish)](https://docs.rs/pretty-xmlish/latest/pretty_xmlish)
+
 # Wadler-style algebraic pretty printing API for SQL
 
 This RFC proposes a new API for pretty-printing pseudo "structures".
@@ -106,3 +109,10 @@ and will try to fill an incomplete line with spaces when asked so.
 ### Edge cases
 
 + All methods handle empty lists and no-children records. No-field records are not tested yet.
+
+## Changelog
+
++ 2022 some time: added Unicode support
++ 2023/01/29: changed from `BTreeMap` to associate vector to preserve insertion order
++ 2023/01/31: fixed a bug related to pretty printing the fields
+
