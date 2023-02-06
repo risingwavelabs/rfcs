@@ -22,7 +22,7 @@ I will give some different behavior here. Notice that here the conflict behavior
 
 - **Ignore**
   The Ignore behavior make user can define a "append-only table with primary key" which maintain the primary constrain and also provide a append-only changes to downstream with good performance. This is good to express a table with an At-least-once Delivery connector where a same record can be replayed multiple times to break the primary key constrain.
-  Notice: the specific gammar for this has not designed(e.g. should we expose append-only table to user?) but the situation is the same.
+  Notice: the specific grammar for this has not designed(e.g. should we expose append-only table to user?) but the situation is the same.
 
 - **More... express reduce function or UDAF?**
   In fact, ON CONFLICT Clause can make user be able to do more things. User can even construct a streaming Map-reduce job with that where the primary key define the map fields and ON_CONFLICT clause define the reduce logic.
@@ -58,8 +58,8 @@ I will give some different behavior here. Notice that here the conflict behavior
   where conflict_target can be one of:
     DO NOTHING
     DO OVERWRITE
-    DO UPDATE SET { column_name = { expression | DEFAULT } |
-                    ( column_name [, ...] ) = [ ROW ] ( { expression | DEFAULT } [, ...] ) |
+    DO UPDATE SET { column_name = expression |
+                    ( column_name [, ...] ) = [ ROW ] ( expression[, ...] )
                   } [, ...]
               [ WHERE condition ]
 ```
@@ -83,6 +83,22 @@ and conflict_action is one of:
               [ WHERE condition ]
 
 ```
+
+- **Defined when `CREATE TABLE` instead of `INSERT`**
+  Why:
+  1. Different with PG, the conflicts are not only happens in `INSERT` statement but also on the data from external source.
+  2. In PG, users can define different behavior on different `INSERT` statement. We can not implement it easily because RW treat DML statement with just one `Materialize` operator as a streaming job.
+  
+  By the way, for the `UPDATE` statement, we can just override the old value and it can not break the PK constrain after we ban the update on PK columns <https://github.com/risingwavelabs/risingwave/issues/7710>.
+
+- **Not specify `conflict_target`**
+  In RW, we only have PK constrain, so we can just do check on PK constrain. Also if the table does not have pk, user can not specify the ON CONFLICT clause.
+
+- **DO OVERWRITE behavior**
+  just a Syntactic sugar because it is a usual usage. It has the same meaning with `DO UPDATE SET (a, b, c, ...) = (excluded.a, excluded.b, excluded.c, ...)`
+
+- **Sub-query/sub-SELECT in UPDATE**
+  It is too complex and we need implement stream join plan for the `CREATE TABLE`. So I think we need to put it on hold.
 
 ## Unresolved questions
 
