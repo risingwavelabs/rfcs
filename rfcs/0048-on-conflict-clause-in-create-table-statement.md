@@ -67,7 +67,7 @@ I will give some different behavior here. Notice that here the conflict behavior
     [ PRIMARY KEY (col_name, ... ) ]
   ) ON CONFLICT conflict_action;
 
-  where conflict_target can be one of:
+  where conflict_action can be one of:
     DO NOTHING
     DO OVERWRITE
     DO UPDATE SET { column_name = expression |
