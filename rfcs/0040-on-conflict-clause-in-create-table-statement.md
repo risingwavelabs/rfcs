@@ -24,7 +24,19 @@ I will give some different behavior here. Notice that here the conflict behavior
   The Ignore behavior make user can define a "append-only table with primary key" which maintain the primary constrain and also provide a append-only changes to downstream with good performance. This is good to express a table with an At-least-once Delivery connector where a same record can be replayed multiple times to break the primary key constrain.
   Notice: the specific grammar for this has not designed(e.g. should we expose append-only table to user?) but the situation is the same.
 
-- **More... express reduce function or UDAF?**
+- **Partial Update**
+  The ON CONFLICT make users can do partial update on the table.
+
+  ```SQL
+    CREATE table t(k int primary key, int a, int b) 
+    ON CONFLICT DO UPDATE SET (a,b) = (
+      CASE when EXCLUDED.a is not null then EXCLUDED.a else a end,
+      CASE when EXCLUDED.b is not null then EXCLUDED.b else b end);
+  ```
+  
+  This feature will be useful when user use wide-table schema data model.
+
+- **Express Reduce Function or UDAF?**
   In fact, ON CONFLICT Clause can make user be able to do more things. User can even construct a streaming Map-reduce job with that where the primary key define the map fields and ON_CONFLICT clause define the reduce logic.
   For example.
 
@@ -46,7 +58,7 @@ I will give some different behavior here. Notice that here the conflict behavior
   
 ### Design
 
-#### Syntax and Semantics
+#### Syntax and semantics
 
 ```SQL
   CREATE TABLE [ IF NOT EXISTS ] table_name (
@@ -81,7 +93,6 @@ and conflict_action is one of:
                     ( column_name [, ...] ) = ( sub-SELECT )
                   } [, ...]
               [ WHERE condition ]
-
 ```
 
 - **Defined when `CREATE TABLE` instead of `INSERT`**
@@ -100,16 +111,11 @@ and conflict_action is one of:
 - **Sub-query/sub-SELECT in UPDATE**
   It is too complex and we need implement stream join plan for the `CREATE TABLE`. So I think we need to put it on hold.
 
-## Unresolved questions
+### Future possibilities
 
-- Are there some questions that haven't been resolved in the RFC?
-- Can they be resolved in some future RFCs?
-- Move some meaningful comments to here.
+  We can support the `ON CONFLICT` clause in the Insert statement if we support attach the on conflict description for the chunk in `BatchInsert` executor and `StreamDML` executor to let `Materialize` executor know how to handle the conflict. But the on conflict clause is always needed in create table statement for the table with connector.
 
-## Alternatives
+## Consensus and Conclusion
 
-What other designs have been considered and what is the rationale for not choosing them?
-
-## Future possibilities
-
-Some potential extensions or optimizations can be done in the future based on the RFC.
+- [] We will support `ON CONFLICT` Clause in `CREATE TABLE` with `OVERRIDE` and `DO NOTHING` behavior.
+- [] We will supprot `DO UPDATE` in `ON CONFLICT` Clause
