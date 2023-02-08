@@ -30,8 +30,8 @@ I will give some different behavior here. Notice that here the conflict behavior
   ```SQL
     CREATE table t(k int primary key, int a, int b) 
     ON CONFLICT DO UPDATE SET (a,b) = (
-      CASE when EXCLUDED.a is not null then EXCLUDED.a else a end,
-      CASE when EXCLUDED.b is not null then EXCLUDED.b else b end);
+      COALESCE(EXCLUDED.a, a),
+      COALESCE(EXCLUDED.b, b));
   ```
   
   This feature will be useful when user use wide-table schema data model.
