@@ -15,7 +15,7 @@ Lots of production scenarios contain a fact table and several dimension tables. 
 
 ## Design
 
-There are two types of temporal join. The first one is the process time temporal join and the second one is event time temporal join. Both of them require the outer side to be append-only and the inner side's primary key contained in the equivalence condition of the temporal join condition. The reason for the append-only outer side is that if the outer side is retractable, the previous `insert` output row will be unmatched with the later `delete` one, because the snapshot of the inner side of these two might differ. The reason why the primary key of the inner side needs to be contained in the equivalence condition of the temporal join condition is that, we are trying to enrich the outer side, but we don't want to duplicate them.
+There are two types of temporal join. The first one is **the process time temporal join** and the second one is **the event time temporal join**. Both of them **require the outer side to be append-only and the inner side's primary key contained in the equivalence condition of the temporal join condition**. The reason for the append-only outer side is that if the outer side is retractable, the previous `insert` output row will be unmatched with the later `delete` one, because the snapshot of the inner side of these two might differ. The reason why the primary key of the inner side needs to be contained in the equivalence condition of the temporal join condition is that, we are trying to enrich the outer side, but we don't want to duplicate them.
 
 
 ## Process time temporal join
@@ -53,7 +53,7 @@ As we finish the syntax part, let's dive deep to the implementation. We want to 
 
 ![event_time_temporal_join](images/0049-temporal-join/event_time_temporal_join.svg)
 
-The event time temporal join is far more complicated than the process time temporal join. It requires watermark and maintaining states for both input sides. The syntax looks like that `SELECT * FROM A LEFT JOIN B FOR SYSTEM_TIME AS OF A.even_time ON A.col = B.id`, where `event_time` is the watermark column of the table `A`. This SQL means for each row from table A, it will lookup the snapshot of table B based on its `even_time`. In order to find the exact snapshot of table B, table B (the inner side) also needs to have a watermark column. Only in this way we can make sure table A will not join a stale snapshot of table B. The reason why both sides need state is that both sides need to store rows beyond the current watermark. The reason why the outer side needs a watermark is that it can use it to keep its state small.
+The event time temporal join is far more complicated than the process time temporal join. **It requires watermark columns and maintaining states for both input sides**. The syntax looks like that `SELECT * FROM A LEFT JOIN B FOR SYSTEM_TIME AS OF A.even_time ON A.col = B.id`, where `event_time` is the watermark column of the table `A`. This SQL means for each row from table A, it will lookup the snapshot of table B based on its `even_time`. In order to find the exact snapshot of table B, table B (the inner side) also needs to have a watermark column. Only in this way we can make sure table A will not join a stale snapshot of table B. The reason why both sides need state is that both sides need to store rows beyond the current watermark. The reason why the outer side needs a watermark is that it can use it to keep its state small.
 
 Let's go through an example.
 
@@ -75,7 +75,7 @@ Assuming the watermark is an integer and all rows have the same join key.
 
 ### State Cleaning
 
-The outer side will clean up its state's outdated data (which is behind current watermark). The inner side will clean up its outdated data too, but keep at least one row for each primary key. We need to decide the state's primary key between the join key before the watermark key or watermark key before the join key. 
+The outer side will clean up its state's outdated data (which is behind current watermark). The inner side will clean up its outdated data too, but keep at least one row for each primary key. **We need to decide the state's primary key between the join key before the watermark key or the watermark key before the join key**. 
 
 #### The Outer Side
 
@@ -84,11 +84,11 @@ For the outer side, it is better to use the watermark key before the join key, b
 
 #### The Inner Side
 
-If the watermark between both sides will not vary too much so that we can clean up the state quickly and unprocessed input messages will be small enough to be kept in the memory buffer. Use the watermark key before the join key as the state primary key is better.
+If the watermark between both sides will not vary too much so that we can clean up the state quickly and unprocessed input messages will be small enough to be kept in the memory buffer. Use **the watermark key before the join key** as the state primary key is better.
 
 As we need to keep at least one row for each primary key, it is more appropriate to maintain two states: the main table and the history table. The main table always stores the latest version of records and its primary key is the join key. The history table stores the other versions of records and its primary key is the watermark key before the join key. In this way we can clean up the state quickly (only scan the history table) and keep at least one row for each primary key.
 
-Otherwise, if there is too much data on the inner side, Use the join key before the watermark key as the state primary key is better. In this way, we can just maintain one state and use the memory as a cache. A state cleaning is performed along with access to the inner side table at the same time.
+Otherwise, if there is too much data on the inner side, Use **the join key before the watermark key** as the state primary key is better. In this way, we can just maintain one state and use the memory as a cache. A state cleaning is performed along with access to the inner side table at the same time.
 
 Considering how to handle watermarks for `Mv on Mv`, it needs to consume all the snapshot data of the upstream mv before producing watermarks. The data size could be huge, so using the join key before the watermark key as the state primary key may be better.
 
