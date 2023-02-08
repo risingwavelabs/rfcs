@@ -20,7 +20,7 @@ There are two types of temporal join. The first one is the process time temporal
 
 ## Process time temporal join
 
-![process_time_temporal_join](images/0000-temporal-join/process_time_temporal_join.svg)
+![process_time_temporal_join](images/0049-temporal-join/process_time_temporal_join.svg)
 
 Let's get started with the simpler one, the process time temporal join. The process time temporal join always joins the outer side with the latest snapshot of the inner side. The syntax looks like that `SELECT * FROM A LEFT JOIN B FOR SYSTEM_TIME AS OF NOW() ON A.col = B.id`. `FOR SYSTEM_TIME AS OF` is from the SQL:2011 standard. `NOW()` is used to express that we want to look up the latest snapshot of the inner side. It is different from Flink syntax of the process time temporal join (`SELECT * FROM A, LATERAL TABLE(B(a.proctime)) WHERE a.col = b.id`, where `proctime` is the process time attribute for A). Flink has a time attribute to express process time and uses `temporal table function` and lateral join.
 
@@ -51,7 +51,7 @@ As we finish the syntax part, let's dive deep to the implementation. We want to 
 
 ## Event time temporal join
 
-![event_time_temporal_join](images/0000-temporal-join/event_time_temporal_join.svg)
+![event_time_temporal_join](images/0049-temporal-join/event_time_temporal_join.svg)
 
 The event time temporal join is far more complicated than the process time temporal join. It requires watermark and maintaining states for both input sides. The syntax looks like that `SELECT * FROM A LEFT JOIN B FOR SYSTEM_TIME AS OF A.even_time ON A.col = B.id`, where `event_time` is the watermark column of the table `A`. This SQL means for each row from table A, it will lookup the snapshot of table B based on its `even_time`. In order to find the exact snapshot of table B, table B (the inner side) also needs to have a watermark column. Only in this way we can make sure table A will not join a stale snapshot of table B. The reason why both sides need state is that both sides need to store rows beyond the current watermark. The reason why the outer side needs a watermark is that it can use it to keep its state small.
 
