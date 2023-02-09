@@ -51,8 +51,6 @@ As we finish the syntax part, let's dive deep to the implementation. We want to 
 
 ## Event time temporal join
 
-![event_time_temporal_join](images/0049-temporal-join/event_time_temporal_join.svg)
-
 The event time temporal join is far more complicated than the process time temporal join. **It requires watermark columns and maintaining states for both input sides**. The syntax looks like that `SELECT * FROM A LEFT JOIN B FOR SYSTEM_TIME AS OF A.even_time ON A.col = B.id`, where `event_time` is the watermark column of the table `A`. This SQL means for each row from table A, it will lookup the snapshot of table B based on its `even_time`. In order to find the exact snapshot of table B, table B (the inner side) also needs to have a watermark column. Only in this way we can make sure table A will not join a stale snapshot of table B. The reason why both sides need state is that both sides need to store rows beyond the current watermark. The reason why the outer side needs a watermark is that it can use it to keep its state small.
 
 Let's go through an example.
@@ -70,27 +68,36 @@ Assuming the watermark is an integer and all rows have the same join key.
  WaterMark[8] -> -Row[6] -> +Row[2] -> WaterMark[1] -> inner side  /
 
  // Output
- EventTimeTemporalJoin -> WaterMark[7] -> JoinedRow(+Row[7], Null) -> JoinedRow(+Row[5], +Row[2])
+ EventTimeTemporalJoin -> WaterMark[8] -> JoinedRow(+Row[7], Null) -> JoinedRow(+Row[5], +Row[2]) -> WaterMark[1]
 ```
+
+![event_time_temporal_join](images/0049-temporal-join/event_time_temporal_join.svg)
 
 ### State Cleaning
 
-The outer side will clean up its state's outdated data (which is behind current watermark). The inner side will clean up its outdated data too, but keep at least one row for each primary key. **We need to decide the state's primary key between the join key before the watermark key or the watermark key before the join key**. 
+The outer side will clean up its state's outdated data (which is behind current watermark). The inner side will clean up its outdated data too, but keep at least one row for each primary key. **We need to decide the state's primary key ordering : the join key first and then the watermark key or the watermark key first and then the join key**. 
 
 #### The Outer Side
 
-For the outer side, it is better to use the watermark key before the join key, because each time the join watermark increases, we need to join all rows between the previous watermark and current watermark. Moreover, using the watermark key before the join key is helpful to clean up the outer side's state.
+For the outer side, it is better to choose the watermark key first and then the join key as the primary key ordering, because each time the join watermark increases, we need to join all rows between the previous watermark and current watermark. Moreover, using this ordering is helpful to search and clean up the outer side's state.
 
 
 #### The Inner Side
 
-If the watermark between both sides will not vary too much so that we can clean up the state quickly and unprocessed input messages will be small enough to be kept in the memory buffer. Use **the watermark key before the join key** as the state primary key is better.
+If the watermark between both sides will not vary too much so that we can clean up the state quickly and unprocessed input messages will be small enough to be kept in the memory buffer. Use **the watermark key first and then the join key** as the state primary key is better.
 
-As we need to keep at least one row for each primary key, it is more appropriate to maintain two states: the main table and the history table. The main table always stores the latest version of records and its primary key is the join key. The history table stores the other versions of records and its primary key is the watermark key before the join key. In this way we can clean up the state quickly (only scan the history table) and keep at least one row for each primary key.
+As we need to keep at least one row for each primary key, it is more appropriate to maintain two states: the main table and the history table. The main table always stores the latest version of records and its primary key is the join key. The history table stores the other versions of records and its primary key is in the order of the watermark key first and then the join key. In this way we can clean up the state quickly (only scan the history table) and keep at least one row for each primary key.
 
-Otherwise, if there is too much data on the inner side, Use **the join key before the watermark key** as the state primary key is better. In this way, we can just maintain one state and use the memory as a cache. A state cleaning is performed along with access to the inner side table at the same time.
+Otherwise, if there is too much data on the inner side, Use **the join key first and then the watermark key** as the state primary key is better. In this way, we can just maintain one state and use the memory as a cache. A state cleaning is performed along with access to the inner side table at the same time.
 
-Considering how to handle watermarks for `Mv on Mv`, it needs to consume all the snapshot data of the upstream mv before producing watermarks. The data size could be huge, so using the join key before the watermark key as the state primary key may be better.
+Considering how to handle watermarks for `Mv on Mv`, it needs to consume all the snapshot data of the upstream mv before producing watermarks. The data size could be huge, so using the join key first and then the watermark key as the state primary key may be better.
+
+
+## Summary
+
+- Temporal join requires the outer side to be append-only and the inner side's primary key contained in the equivalence condition of the temporal join condition
+- Process time temporal join can be stateless. It relies on the scheduler to place the join operator together with the inner side table.
+- Event time temporal join requires watermark columns and maintaining states for both input sides. The outer side state's primary key should be in the order of the watermark key first and then the join key, while the inner side state's primary key should be in the order of join key first and then watermark key
 
 ## References
 - [Flink Temporal Join](https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/sql/queries/joins/#temporal-joins)
