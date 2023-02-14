@@ -9,7 +9,7 @@ start_date: "2023/02/14"
 
 ## Summary
 
-Introduce a new component Sort Buffer used in the streaming executor and give a general method to implement EMIT ON CLOSE stream executor. Sort Buffer can support materialize and persistent the changes stream and drain the "stable" records with the input watermark. Because the input watermarks are always monotonically increasing, the output records are ordered by the watermark column and append-only. The component is very useful with EMIT ON WINDOW CLOSE Semantics([RFC: The Semantics of EMIT ON WINDOW CLOSE](https://github.com/risingwavelabs/rfcs/pull/30)).
+Introduce a new component Sort Buffer used in the streaming executor and give a general method to implement EMIT ON CLOSE stream executor. Sort Buffer can support materialize and persistent the changes stream and drain the "stable" records with the input watermark. Because the input watermarks are always monotonically increasing, the output records are ordered by the watermark column and append-only.
 
 ***Note: In this RFC, we will focus on the EMIT ON CLOSE query***
 
@@ -31,18 +31,48 @@ In this RFC, we will focus on how to implement a stream executor with EMIT ON WI
 
 ## Sort Buffer Design
 
-### Streaming Agg
+Compared with the normal stream executor, the EMIT ON CLOSE executor needs to buffer the data until the result is complete. A general component `SortBuffer` is introduced here for executors. 
+SortBuffer consists of two parts, SortBufferCache and SortBufferTable. 
+- SortBufferTable
+  - A state table to persist the buffered data. 
+  - The primary key's first column is a watermark column. We call it as **sort key**
+- SortBufferCache
+  - A row cache on the SortBufferTable
+  - can accept watermark to know some rows have been complete
+  - can drain the complete row in the memory ordered by the sort key.
 
-## Unresolved questions
+And the SortBufferTable is just a normal StateTable, we will only need to implement the SortBufferCache.
+```rust 
+impl SortBufferCache{
+  /// consume the next row ordered by the first column which is complete.
+  /// return None if there is no remaining complete row.
+  /// fill cache from the state table when cache miss.
+  /// will consume the row in memory.
+  fn next(&mut self, table: &StateTable) -> Option<Row>;
 
-* Are there some questions that haven't been resolved in the RFC?
-* Can they be resolved in some future RFCs?
-* Move some meaningful comments to here.
+  /// use the first column's watermark to refresh the SortBuffer
+  /// can trigger more rows complete which can be returned by `self.next`
+  fn accept_watermark(&mut self, watermark: Watermark);
+  
+  /// apply changes operations
+  fn insert(&mut self, row: Row);
+  fn delete(&mut self, row: Row);
+  fn apply_chunk(&mut self, c: Chunk);
 
-## Alternatives
+  /// recovery from the stateTable, just gets the row belonging to stateTable's vnode.
+  fn recovery(&mut self, table: &StateTable);
+}
 
-What other designs have been considered and what is the rationale for not choosing them?
+```
+The component does not take over so many things. There are still lots of things that should be done by the executor, such as
+- all the operations should be applied on the table and cache, and the executor should write in duplicate. 
+- after getting the complete data, the executor must delete the useless data by itself (delete one by one/range delete with the last key). Notice that it is different with state clean and the data must be deleted consistently.
 
-## Future possibilities
-
-Some potential extensions or optimizations can be done in the future based on the RFC.
+And then we will see why and how it works in different situations.
+## Executors
+### Sort
+### GroupAgg
+### OverAggExec
+### DynFilter
+### EqJoin
+### IntervalJoin
