@@ -1,15 +1,15 @@
 ---
-feature: Sort Buffer, a General Component in Streaming Executor for Emit on Close 
+feature: Stream Executor with Emit on Close Semantics
 authors:
   - "st1page"
 start_date: "2023/02/14"
 ---
 
-# Sort Buffer, a General Component in Streaming Executor for Emit on Close 
+# Stream Executor with Emit on Close Semantics 
 
 ## Summary
 
-Introduce a new component Sort Buffer used in the streaming executor. Sort Buffer can support materialize and persistent the changes stream and drain the "stable" records with the input watermark. Because the input watermarks is always monotonically increasing, the output records is ordered by the watermark column and append-only. The component is very useful with EMIT ON WINDOW CLOSE Semantics([RFC: The Semantics of EMIT ON WINDOW CLOSE](https://github.com/risingwavelabs/rfcs/pull/30)).
+Introduce a new component Sort Buffer used in the streaming executor and give a general method to implement EMIT ON CLOSE stream executor. Sort Buffer can support materialize and persistent the changes stream and drain the "stable" records with the input watermark. Because the input watermarks is always monotonically increasing, the output records is ordered by the watermark column and append-only. The component is very useful with EMIT ON WINDOW CLOSE Semantics([RFC: The Semantics of EMIT ON WINDOW CLOSE](https://github.com/risingwavelabs/rfcs/pull/30)).
 
 ***Note: In this RFC, we will focus on the EMIT ON CLOSE query***
 
