@@ -34,7 +34,7 @@ In this RFC, we will focus on how to implement a stream executor with EMIT ON WI
 Compared with the normal stream executor, the EMIT ON CLOSE executor needs to buffer the data until the result is complete. A general component `SortBuffer` is introduced here for executors. 
 SortBuffer consists of two parts, SortBufferCache and SortBufferTable. 
 - SortBufferTable
-  - A state table to persist the buffered data. 
+  - A stateTable to persist the buffered data. 
   - The primary key's first column is a watermark column. We call it as **sort key**
 - SortBufferCache
   - A row cache on the SortBufferTable
@@ -46,9 +46,15 @@ And the SortBufferTable is just a normal StateTable, we will only need to implem
 impl SortBufferCache{
   /// consume the next row ordered by the first column which is complete.
   /// return None if there is no remaining complete row.
-  /// fill cache from the state table when cache miss.
+  /// fill cache from the stateTable when cache miss.
   /// will consume the row in memory.
   fn next(&mut self, table: &StateTable) -> Option<Row>;
+
+  /// get the minimum sort key in rows which is complete.
+  /// return None if there is no remaining complete row.
+  /// fill cache from the stateTable when cache miss.
+  /// will not consume the row in memory.
+  fn peek_sort_key(&self, table: &StateTable) -> Option<ScalarImpl>;
 
   /// use the first column's watermark to refresh the SortBuffer
   /// can trigger more rows complete which can be returned by `self.next`
@@ -71,8 +77,67 @@ The component does not take over so many things. There are still lots of things 
 And then we will see why and how it works in different situations.
 ## Executors
 ### Sort
+  SortExecutor just has a executor which wraps a SortBuffer which can transform any stream into a append only stream ordered by a watermark column.
+  - when stream chunk arrive
+    - write the chunk into stateTable
+    - write the chunk into SortBufferCache
+  - when watermark arrive
+    - pass watermark into SortBufferCache
+  - when barrier arrive
+    - drain complete rows from SortBufferCache, for each rows
+      - emit the row downstream
+      - delete the row in stateTable
+### SortAgg (with batch only agg calls)
+  Under "EMIT ON CLOSE" semantics, if there is watermark in group key. We can use SortExecutor for the input stream, and then we get a sorted stream which can be processed by "BatchSortAgg". Then, we can support all the aggregators which can run in batch mode.
+  The SortAgg supports more kinds of aggregators under  "EMIT ON CLOSE", but should materialized all the input data, which could be worse than the normal streamGroupAgg.
+
 ### GroupAgg
-### OverAggExec
+  If there is watermark in group key, the EMIT ON CLOSE GroupAgg calculate the aggregation with the same logic with streamGroupAgg, But it only emit the complete part of the agg result. A simple idea is add a sortExecutor after a normal streamGroupAgg and we can find that the streamGroupAgg's result table and sortExecutor's stateTable exactly have the same schema and meaning. 
+  So the EMIT ON CLOSE streamGroupAgg need only add a SortBufferCache on the agg's result table.
+  - when stream chunk arrive
+    - do the same with normal streamGroupAgg 
+  - when watermark arrive
+    - pass watermark into SortBufferCache
+  - when barrier arrive
+    - do the same with normal streamGroupAgg but not emit to down stream, just get the changes
+      - write the changes into SortBufferCache
+      - write the changes into result table
+      - (the LRU cache should has been changed by the agg's logic)
+    - drain complete rows from SortBufferCache, for each rows
+      - emit the row downstream
+      - delete the row in result table
+    - emit watermark with the last emitted row's watermark
+
+### OverAgg
+[RFC: Over Window on watermark](https://github.com/risingwavelabs/rfcs/pull/8)
+We still need more detailed design here, but it is clear that the row's complete and row's emit can not always happens at the same time. 
+
 ### DynFilter
+
+It can be `EMIT ON CLOSE` version when
+- the condition is one right column ">" or ">=" the left value.
+- there are watermarks on the left value and right table's condition column
+E.g.
+```SQL
+/* there is user-defined watermark on events.time*/
+SELECT * from events WHERE events.time > now() - 10 minutes;
+```
+A SortBufferCache replace the original cache on the right table.
+  - when right stream chunk arrive
+    - apply changes on right sortBufferCache
+    - apply changes on right stateTable 
+  - when left value arrive
+    - maybe we can just ignore it because here only left watermark is useful?
+  - when right watermark arrive
+    - pass watermark into right SortBufferCache
+    - peek_sort_key from right SortBufferCache and check if the key satisfy the dynFilter's condition with the right watermark, if yes get next row from right SortBufferCache.
+      - emit the row 
+      - delete the row in the right state table
+  - when barrier arrive
+    - do the same with normal dynFilter
+
 ### EqJoin
+It likes window join in Flink.
+TODO:
 ### IntervalJoin
+[RFC: Band Join](https://github.com/risingwavelabs/rfcs/pull/32)
