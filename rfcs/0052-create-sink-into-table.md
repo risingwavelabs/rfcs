@@ -18,7 +18,7 @@ We have meet some users use FlinkSQL to handle the situation. They use a hbase a
 
 ###  RisingWave's Own Expressive Enhancement
 It can also improve RisingWave's own expressiveness even we actually do not want to sink multiple stream into one table. with the ON CONFLICT clause ([RFC: on conflict clause](https://github.com/risingwavelabs/rfcs/pull/48)) and `Create sink into table` statement, user can define some user defined aggregation logic when we have not implemented [User-Defined Aggregates](https://www.postgresql.org/docs/current/xaggr.html).
-This is also needed by some POC users.
+The User-Defined Aggregates feature is also needed by some POC users. If we implement `on conflict clause` and `Create sink into table`, we can temporarily put the UDAF on hold. I think UDAF is a little hard in streaming because users should define their own state storage in the Aggregates function so that RisingWave can persist them.
 
 ## Design
 ### Syntax and semantics
