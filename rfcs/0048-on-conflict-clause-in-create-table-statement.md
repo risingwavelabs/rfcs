@@ -9,7 +9,7 @@ start_date: "2023/2/1"
 
 ## Summary
 
-allow user to declare the conflict behavior when the newly inserted row break the unique constraint of primary key.
+Allow user to declare the conflict behavior when the newly inserted row break the unique constraint of primary key.
 
 ## Motivation
 
