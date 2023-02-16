@@ -99,7 +99,7 @@ And then we will see why and how it works in different situations.
 
 ### SortAgg (with batch only agg calls)
 
-  Under "EMIT ON CLOSE" semantics, if there is watermark in group key. We can use SortExecutor for the input stream, and then we get a sorted stream which can be processed by "BatchSortAgg". Then, we can support all the aggregators which can run in batch mode.
+  Under "EMIT ON CLOSE" semantics, if there is watermark in group key, we can use SortExecutor for the input stream, and then we get a sorted stream which can be processed by "BatchSortAgg". Then, we can support all the aggregators which can run in batch mode.
   The SortAgg supports more kinds of aggregators under  "EMIT ON CLOSE", but should materialized all the input data, which could be worse than the normal streamGroupAgg.
 
 ### GroupAgg
