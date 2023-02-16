@@ -21,7 +21,7 @@ I will give some different behavior here. Notice that here the conflict behavior
   The most important needs of using the Overwrite behavior is to express "Upsert" operation. Some connector can not give the old value of the update operation and we need to overwrite the old value with the same pk in storage.
 
 - **Ignore**
-  The Ignore behavior make user can define a "append-only table with primary key" which maintain the primary constrain and also provide a append-only changes to downstream with good performance. This is good to express a table with an At-least-once Delivery connector where a same record can be replayed multiple times to break the primary key constrain.
+  The Ignore behavior make user can define a "append-only table with primary key" which maintain the primary constraint and also provide a append-only changes to downstream with good performance. This is good to express a table with an At-least-once Delivery connector where a same record can be replayed multiple times to break the primary key constraint.
   Notice: the specific grammar for this has not designed(e.g. should we expose append-only table to user?) but the situation is the same.
 
 - **Partial Update**
@@ -100,10 +100,10 @@ and conflict_action is one of:
   1. Different with PG, the conflicts are not only happens in `INSERT` statement but also on the data from external source.
   2. In PG, users can define different behavior on different `INSERT` statement. We can not implement it easily because RW treat DML statement with just one `Materialize` operator as a streaming job.
   
-  By the way, for the `UPDATE` statement, we can just override the old value and it can not break the PK constrain after we ban the update on PK columns <https://github.com/risingwavelabs/risingwave/issues/7710>.
+  By the way, for the `UPDATE` statement, we can just override the old value and it can not break the PK constraint after we ban the update on PK columns <https://github.com/risingwavelabs/risingwave/issues/7710>.
 
 - **Not specify `conflict_target`**
-  In RW, we only have PK constrain, so we can just do check on PK constrain. Also if the table does not have pk, user can not specify the ON CONFLICT clause.
+  In RW, we only have PK constraint, so we can just do check on PK constraint. Also if the table does not have pk, user can not specify the ON CONFLICT clause.
 
 - **DO OVERWRITE behavior**
   just a Syntactic sugar because it is a usual usage. It has the same meaning with `DO UPDATE SET (a, b, c, ...) = (excluded.a, excluded.b, excluded.c, ...)`
