@@ -17,7 +17,7 @@ Introduce a new component Sort Buffer used in the streaming executor and give a 
 
 Let's look back on the current designs and RFCs.
 
-The [RFC: The Semantics of EMIT ON WINDOW CLOSE](https://github.com/risingwavelabs/rfcs/pull/30) has given a strict definition of the semantics of **EMIT ON WINDOW CLOSE**. In short, the streaming job with the "EMIT ON WINDOW CLOSE" modifier emits the result when the result is complete, and no sooner, no later. In other words, the "EMIT ON WINDOW CLOSE" streaming query gives an append-only result as soon as possible.
+The [RFC: The Semantics of EMIT ON WINDOW CLOSE](https://github.com/risingwavelabs/rfcs/pull/30) has given a strict definition of the semantics of **EMIT ON WINDOW CLOSE**. In short, the streaming job with the "EMIT ON WINDOW CLOSE" modifier emits the result when the window is closed and the result is complete, and no sooner, no later. 
 
 According to the same RFC(EMIT ON WINDOW CLOSE), The **User-defined Watermark** on the source make the user a way to declare which records from the source are outdated and can be discarded. Watermark gives a bound of the data as the data inputs, which provides the guarantee that some results are complete and triggers the emitting of the EMIT ON WINDOW CLOSE query.
 
