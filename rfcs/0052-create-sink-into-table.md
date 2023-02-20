@@ -25,12 +25,17 @@ The user-defined aggregates feature is also needed by some POC users. If we impl
 ```SQL
   CREATE SINK INTO [table_name] AS select_query
 ```
-All the behaviour is the same with a sink into an external table with a connector. 
+All the behavior is the same with a sink into an external table with a connector. 
 The schema of the sink should be the same as the table.
 If the query generates an upsert sink, the primary key of the sink should be the same as that of the table.
 A circular streaming plan is forbidden, with `dependent_relations` we can easily do it.
 
 ### Implementation
-**TODO**
 A simple idea is to just sink the rows into the DMLExecutor, but the path is unstable and the data could be lost if failover happens. A "At most once" sink is not good enough.
-We should do a configure change to connect the sink node to the table fragment, which can benefit from our checkpoint mechanism. I am not sure if it is easy to add an additional stream on an exist merge, **to be discussed**.
+We should do a configure change to connect the sink node to the table fragment, which can benefit from our checkpoint mechanism.
+
+### Schema Change
+to be discussed if the behavior is ok
+- adding a column one a table which has been sink, the new column will be null.
+- dropping column on a table which has been sink is forbidden.
+Or just simply ban all the DDL on a table where exists an sink.
