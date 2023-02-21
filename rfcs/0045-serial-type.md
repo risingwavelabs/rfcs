@@ -27,7 +27,7 @@ To reduce the unnecessary cost, there are two possible solutions:
 1. Allow `UnknownShard(some_columns)` in our graph and our relational table to represent that the data is already sharded by its distribution key, but not hash sharded. (Our current `row_id` is already sharded because a centralized meta service uniquely generates it).
 2. **The source executors always generate `_row_id` that has already satisfied `HashShard[_row_id]`**.
 
-Both solutions are OK, but the first one may affect more components, e.g. the materialized view is not shared by the consistent hash, so it will be hard in consistent hash-based compaction. Therefore, we'll focus on the first solution in this proposal.
+Both solutions are OK, but the first one may affect more components, e.g. the materialized view is not shared by the consistent hash, so it will be hard in consistent hash-based compaction. Therefore, we'll focus on the second solution in this proposal.
 
 ## Design
 
