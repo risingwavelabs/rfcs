@@ -85,7 +85,7 @@ And then we will see why and how it works in different situations.
 
 ### Sort
 
-  SortExecutor just has a executor which wraps a SortBuffer which can transform any stream into a append only stream ordered by a watermark column.
+SortExecutor just has a executor which wraps a SortBuffer which can transform any stream into a append only stream ordered by a watermark column.
 
 - when stream chunk arrive
   - write the chunk into stateTable
@@ -99,13 +99,15 @@ And then we will see why and how it works in different situations.
 
 ### SortAgg (with batch only agg calls)
 
-  Under "EMIT ON WINDOW CLOSE" semantics, if there is watermark in group key, we can use SortExecutor for the input stream, and then we get a sorted stream which can be processed by "BatchSortAgg". Then, we can support all the aggregators which can run in batch mode.
-  The SortAgg supports more kinds of aggregators under "EMIT ON WINDOW CLOSE", but should materialized all the input data, which could be worse than the normal streamGroupAgg. So we have another EMIT ON WINDOW CLOSE GroupAgg implementation as described below. I think the SortAgg is just to solve some aggregation functions which does not have a streaming version(hard to implement or with high cost)
+Under "EMIT ON WINDOW CLOSE" semantics, if there is watermark in group key, we can use SortExecutor for the input stream, and then we get a sorted stream which can be processed by "BatchSortAgg". Then, we can support all the aggregators which can run in batch mode.
+
+The SortAgg supports more kinds of aggregators under "EMIT ON WINDOW CLOSE", but should materialized all the input data, which could be worse than the normal streamGroupAgg. So we have another EMIT ON WINDOW CLOSE GroupAgg implementation as described below. I think the SortAgg is just to solve some aggregation functions which does not have a streaming version(hard to implement or with high cost)
 
 ### GroupAgg
 
-  If there is watermark in group key, the EMIT ON WINDOW CLOSE GroupAgg calculate the aggregation with the same logic with streamGroupAgg, But it only emit the complete part of the agg result. A simple idea is add a sortExecutor after a normal streamGroupAgg and we can find that the streamGroupAgg's result table and sortExecutor's stateTable exactly have the same schema and meaning.
-  So the EMIT ON WINDOW CLOSE streamGroupAgg need only add a SortBufferCache on the agg's result table.
+If there is watermark in group key, the EMIT ON WINDOW CLOSE GroupAgg calculate the aggregation with the same logic with streamGroupAgg, But it only emit the complete part of the agg result. A simple idea is add a sortExecutor after a normal streamGroupAgg and we can find that the streamGroupAgg's result table and sortExecutor's stateTable exactly have the same schema and meaning.
+
+So the EMIT ON WINDOW CLOSE streamGroupAgg need only add a SortBufferCache on the agg's result table.
 
 - when stream chunk arrive
   - do the same with normal streamGroupAgg
@@ -136,15 +138,21 @@ When there are watermarks in the first join key of the both two sides. We can us
 
 We have discussed about the band join in [RFC: Band Join](https://github.com/risingwavelabs/rfcs/pull/32). And we will support the EMIT ON CLOSE interval join with these formal definition which is same with FlinkSQL.	
 there should be at least one equal join key to shuffle and parallel process.
+
 The interval condition should be on the two column. Considering they are `l_t` and `r_t`. The condition should be always able to transform to the following forms. l_t between interval(r_t, r_t + constant)
+
 There are two tables for one side and four tables in total. Assuming that the `l_t`, `r_t` as the watermark columns, `l_pk`, `r_pk` are the stream keys and `l_k`, `r_k` as the equal join key, the tables primary keys are:
+
 - left state table: [l_k, l_t, l_pk]
 - left sort table: [l_t, l_k, l_pk]
 - right state table: [r_k, r_t, r_pk]
 - right sort table: [r_t, t_k, r_pk]
+
 The sort table is optimized to get the complete rows and the state table is optimized to match by equal key. The executor’s computing logic is that
+
 1. get the lowest complete row **R** from one side’s sort buffer
 2. Using the peek value from the other side’s sort buffer, check if the other side rows is complete match the **R** with the interval condition. If yes, consume the R from the sort buffer and go on
 3. Get the rows in the other side’s state table with the join key and get all the rows which satisfy the equal condition and interval condition to do join calculation and emit the result.
 4. Delete the R in the state table
+
 And to accelerate the processing, we need to add the SortBuffer cache on the sort table and add a LRU cache on the state table. And because of the interval join's property, the read pattern is to find in a lowest time's interval with a group join key. So the cache strategy is the same as the cache of the max/min aggregator.
