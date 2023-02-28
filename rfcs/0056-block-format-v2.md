@@ -102,7 +102,7 @@ In the current implementation, the block is already split by table_id, and from 
 
 In `Epoch`(physical_time(48)|seq(16)) encoding, `physical_time` is in the high 48 bits. In our system, the key is generated with the epoch, which means that the key in the block is localized and the number of epochs involved is not large. To address this issue, we can introduce `Dictionary Encoding` for `Epoch`.
 
-![Untitled](Design%20Block%20Format%20V2%20cc022efbc09d4768b57e384df6f875df/Untitled.png)
+![](./images/0056-block-format-v2/epoch.png)
 
 minor: we can also remove the epoch of the key that is lower than the watermark in the version because it is the oldest key in the storage and does not need to care about the epoch.
 
