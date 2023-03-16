@@ -30,12 +30,12 @@ For the sake of clarity, in this doc, we will use the term **"parameters"** for 
 
 ```mermaid
 graph LR
-    all[Does it apply to the RisingWave instance?]
+    all[Does it apply to multiple components in the cluster or needs to be mutable at runtime?]
     all ==No==> process["Process Configs (Local)"]
     all ==Yes==> system["System Parameters (on Meta)"]
     process --> cli_args(Command-line arguments)
     process --> conf_file("Config file (.toml)")
-    system --> sql_cmd(SQL interface: SET / SHOW)
+    system --> sql_cmd(SQL interface: ALTER / SHOW)
     system --> cloud(Web Console)
 ```
 
@@ -69,25 +69,11 @@ Similar to other system metadata e.g. catalog,
 
 Therefore, the Notification Service seems to fit the scene well.
 
-### Session Parameters
-
-PostgreSQL allows users to set parameters for the current session as well.
-
-```sql
-SET parameter TO value / 'value' / DEFAULT;
-```
-
-References:
-
-- [PostgreSQL: Documentation: 15: 20.1. Setting Parameters](https://www.postgresql.org/docs/current/config-setting.html)
-
-Previously, we had already introduced [session parameters in RisingWave](https://github.com/risingwavelabs/risingwave/blob/53f7e0db772ac7e51773791bb8301624ed763ae8/src/common/src/session_config/mod.rs#L265). Some of them should be system parameters like `batch_enable_sort_agg` or `query_mode`. Postgres **enforces** that session parameters must also be system paramters, we can follow this rule as well.
-
 ### Process Configs
 
 Let's rethink the current design of CLI options and config files. ([#5676](https://github.com/risingwavelabs/risingwave/issues/5676)) Given the existence of system parameters, some existing parameters may need to be moved to system parameters, like `data_directory` as mentioned before.
 
-We propose to consider CLI options as a way to override config files (i.e. in term of priority, CLI options -> config file -> defaults); as a result, the items in CLI options are a subset of the config file. The reasons for this include
+We propose to consider CLI options as a way to override config files (i.e. in term of priority, CLI options -> config file -> defaults). The reasons for this include
 
 - All configs are still too many to be written as CLI options. (See [example.toml](https://github.com/risingwavelabs/risingwave/blob/main/src/config/example.toml)) 
 - While CLI configs are handy to set some frequently-used options like endpoint and memory.
