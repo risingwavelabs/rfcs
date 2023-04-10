@@ -15,7 +15,7 @@ As a database, atomicity is a must-have feature. A single DML statement can be r
 
 ## Design
 
-![](images/0000-dml-atomicity/redo_commit.svg)
+![](images/0059-dml-atomicity/redo_commit.svg)
 
 To provide atomicity for DML, we can use the concept of redo log or WAL (write-ahead logging). This RFC proposes a redo log and a commit log as internal states for `DMLExecutor`.
 
@@ -38,7 +38,7 @@ The DMLExecutor should follow this contract:
 - `End(txn_id)` : Update the txn_id from an uncommitted to a committed state in the commit log. Then, apply the records from the redo log to the downstream. Applying records involves deleting them and sending them downstream. After applying the records, delete the txn_id from the commit log.
 
 
-![](images/0000-dml-atomicity/recovery.svg)
+![](images/0059-dml-atomicity/recovery.svg)
 
 As we can see, DML statements write their chunk into the redo log before actually applying them to the downstream. This is done so that we can ensure atomicity. If a recovery event occurs, we need to check the commit state to decide whether to apply or discard the data in the redo log. A `committed` state means we need to apply the remaining records in the corresponding redo log to the downstream, while an `uncommitted` state means we need to clean up the state of the corresponding redo log. We can perform this cleanup job after the `DMLExecutor` receives the first barrier. In summary, we should scan the commit log and clean up the redo log after recovery.
 
