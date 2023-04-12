@@ -29,7 +29,7 @@ Any insert, delete, or update executor should follow this contract:
 
 
 As for DMLExecutor, maintain two internal states: 
-1. create table redo_log(txn_id, ops, column_1, …, column_N). ops and columns are exactly the same meanings as the stream chunk.
+1. create table redo_log(txn_id, ops, column_1, …, column_N). ops and columns are exactly the same meanings as the stream chunk. The primary key of `redo_log` is `txn_id` plus dml table's primary key which also means the `row_id` generator should also be merged into the `DMLExecutor`.
 2. create table commit_log(txn_id, state). The value of the state column could be uncommitted or committed
 
 The DMLExecutor should follow this contract:
@@ -41,6 +41,14 @@ The DMLExecutor should follow this contract:
 ![](images/0059-dml-atomicity/recovery.svg)
 
 As we can see, DML statements write their chunk into the redo log before actually applying them to the downstream. This is done so that we can ensure atomicity. If a recovery event occurs, we need to check the commit state to decide whether to apply or discard the data in the redo log. A `committed` state means we need to apply the remaining records in the corresponding redo log to the downstream, while an `uncommitted` state means we need to clean up the state of the corresponding redo log. We can perform this cleanup job after the `DMLExecutor` receives the first barrier. In summary, we should scan the commit log and clean up the redo log after recovery.
+
+## Durability
+
+Durability isn't guaranteed in this RFC. DMLs are considered finished after sending `End(txn_id)` to the `DMLExecutor`. The reason why we don't guarantee right now is that the current design relies on the checkpoint to commit DML statements, unless we can emit a checkpoint barrier right after a DML statement to force a checkpoint, but it seems expensive. Might be DMLs plus `Flush` is a more pratical solution to the durability.
+
+## Transaction
+
+This design relies highly on the fact that DMLs in our system only modify one table. If we want to support modifying more than one table in a transaction or a DML statement, we need a more complex design to coordinate the transaction which seems unsuitable to our current stage.
 
 ## Others
 - Table schema change needs to modify the redo log state together.
