@@ -104,9 +104,9 @@ The SortAgg supports more kinds of aggregators under EOWC, but should materializ
 
 ### GroupAgg
 
-If there is watermark in group key, the EOWC GroupAgg calculates the aggregation with the same logic as non-EOWC GroupAgg, but it only emits the complete part of the agg result. If we add a SortExecutor after a non-EOWC GroupAgg, we can find that the GroupAgg's result table and SortExecutor's stateTable exactly have the same schema and meaning.
+If there is watermark in group key, the EOWC GroupAgg calculates the aggregation with the same logic as non-EOWC GroupAgg, but it only emits the complete part of the agg result.
 
-So the EOWC GroupAgg only needs to add a SortBufferCache on the agg's result table.
+If we add a SortExecutor after a non-EOWC GroupAgg, we can find that the GroupAgg's result table and SortExecutor's stateTable exactly have the same schema and meaning. So the EOWC GroupAgg only needs to add a SortBufferCache on the agg's result table.
 
 - when stream chunk arrives
   - do the same as non-EOWC GroupAgg
