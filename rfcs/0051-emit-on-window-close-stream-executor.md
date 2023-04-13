@@ -36,17 +36,17 @@ Compared with the normal stream executor, the EOWC executor needs to buffer the 
 
 SortBuffer consists of two parts:
 - SortBufferTable
-  - A stateTable to persist the buffered data.
+  - A normal stateTable to persist the buffered data.
   - The primary key's first column is a watermark column. We call it **sort key**.
-- SortBufferCache
+- SortBufferCache (optional)
   - A row cache on the SortBufferTable.
-  - can accept watermark to know some rows have been complete.
-  - can drain the complete row in the memory ordered by the sort key.
 
-The SortBufferTable is just a normal StateTable. We only need to implement the SortBufferCache:
+SortBuffer should support the following operations:
+- can accept watermark to know some rows have been complete.
+- can drain the complete row in the memory ordered by the sort key.
 
 ```rust
-impl SortBufferCache {
+impl SortBuffer {
   /// consume the next row ordered by the first column which is complete.
   /// return None if there is no remaining complete row.
   /// fill cache from the stateTable when cache miss.
@@ -96,13 +96,33 @@ SortExecutor can transform any stream into a append only stream ordered by a wat
     - emit the row downstream
     - delete the row in stateTable
 
-### SortAgg (with batch only agg calls)
+Sort has no difference in EOWC and non-EOWC mode.
+
+### New executors made availble by Sort
+
+As mentioned in [RFC #2: The WatermarkFilter and StreamSort operator](https://github.com/risingwavelabs/rfcs/pull/2), some operators can only accept ordered input. They are made avaible after introducing Sort.
+
+We only briefly introduce them here. Detailed designs are still needed.
+
+#### SortAgg (with batch only agg calls)
 
 Under EOWC semantics, if there is watermark in group key, we can use SortExecutor for the input stream, and then we get a sorted stream which can be processed by BatchSortAgg. Then, we can support all the aggregators which can run in batch mode.
 
 The SortAgg supports more kinds of aggregators under EOWC, but should materialized all the input data, which could be worse than the non-EOWC GroupAgg. So we have another EOWC GroupAgg implementation as described below. I think the SortAgg is just to solve some aggregation functions which does not have a streaming version (hard to implement or with high cost).
 
-### GroupAgg
+#### OverAgg
+
+See [RFC #8: Over Window on watermark](https://github.com/risingwavelabs/rfcs/pull/8).
+
+We still need more detailed design, but it is clear that the row's completion and row's emission can not always happens at the same time.
+
+### EOWC version of existing executors
+
+The naive approach: By adding a SortBuffer after any executor, we immediately get its EOWC version.
+
+For some executors, we can do better by reusing its result state table as the SortBufferTable, i.e., an invasive SortBuffer implementation.
+
+#### GroupAgg
 
 If there is watermark in group key, the EOWC GroupAgg calculates the aggregation with the same logic as non-EOWC GroupAgg, but it only emits the complete part of the agg result.
 
@@ -122,27 +142,23 @@ If we add a SortExecutor after a non-EOWC GroupAgg, we can find that the GroupAg
     - delete the row in result table
   - emit watermark with the last emitted row's watermark
 
-### OverAgg
+Note: This actually means we will have two caches with different cache policies for one state table (one for aggregate computation and one for emitting). It's arguable whether it's a good idea. Since it's easy to add a switch to enable/disable the SortBufferCache, we delay the decision to future work.
 
-See [RFC #8: Over Window on watermark](https://github.com/risingwavelabs/rfcs/pull/8).
-
-We still need more detailed design, but it is clear that the row's completion and row's emission can not always happens at the same time.
-
-### EqJoin
+#### EqJoin
 
 It is like window join in Flink.
 
 When there are watermarks in the first join key of the both two sides. We can use two SortBuffers (table and cache) to implement a SortMergeJoin. SortBuffer’s `peek` method is used here.
 
-### IntervalJoin
+#### IntervalJoin
 
-We have discussed about the band join in [RFC #32: Band Join](https://github.com/risingwavelabs/rfcs/pull/32). And we will support the EOWC interval join with these formal definition which is same with FlinkSQL. 
+We have discussed about the band join in [RFC #32: Band Join](https://github.com/risingwavelabs/rfcs/pull/32). And we will support the EOWC interval join with these formal definition which is same with FlinkSQL.
 
 There should be at least one equal join key to shuffle and parallel process.
 
-The interval condition should be on the two watermark columns. Considering they are `l_t` and `r_t`. The condition should be always able to transform to the form `l_t BETWEEN interval(r_t, r_t + constant)`.
+The interval condition should be on the two watermark columns. Considering they are `l_t` and `r_t` . The condition should be always able to transform to the form `l_t BETWEEN interval(r_t, r_t + constant)` .
 
-There are two tables for each side and four tables in total. Assuming that `l_t`, `r_t` are the watermark columns, `l_pk`, `r_pk` are the stream keys and `l_k`, `r_k` as the equal join key, the tables' primary keys are:
+There are two tables for each side and four tables in total. Assuming that `l_t` , `r_t` are the watermark columns, `l_pk` , `r_pk` are the stream keys and `l_k` , `r_k` as the equal join key, the tables' primary keys are:
 
 - left state table: `[l_k, l_t, l_pk]`
 - left sort table: `[l_t, l_k, l_pk]`
