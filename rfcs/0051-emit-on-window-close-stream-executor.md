@@ -120,7 +120,7 @@ We still need more detailed design, but it is clear that the row's completion an
 
 The naive approach: By adding a SortBuffer after any executor, we immediately get its EOWC version.
 
-For some executors, we can do better by reusing its result state table as the SortBufferTable, i.e., an invasive SortBuffer implementation.
+For some executors, we can do better by reusing its result state table as the SortBufferTable, i.e., an invasive SortBuffer implementation. This is also why the `StateTable` is accepted as input for the `SortBuffer` API, instead of being owned by it.
 
 #### GroupAgg
 
