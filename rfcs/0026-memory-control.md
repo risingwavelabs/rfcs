@@ -5,17 +5,27 @@ authors:
 start_date: "2022/11/29"
 ---
 
-# Memory Control
-
-
+# RFC: Memory Management
 
 ## Summary
 
 This RFC proposes a detailed and practical way to control the memory usage for both streaming and batch executors on compute nodes.
 
-## Motivation
+## Background
 
 We had discussed a lot about how to allocate and manage memory before. [RFC: Yet another simple idea for memory management](https://singularity-data.quip.com/CldAAcFmzZSO/Yet-another-simple-idea-for-memory-management) proposed a simple way to control the memory usage of streaming executors by controlling the *watermark epoch* of the LRU caches on a compute node, which was finally adopted in our system, surpassing [RFC: Simpler Dynamic Memory Management Among LRU-Caches](https://singularity-data.quip.com/A1kHAOBUo3Im/RFC-Simpler-Dynamic-Memory-Management-Among-LRU-Caches) and [RFC: Dynamic Memory Budget of Streaming Operators](https://singularity-data.quip.com/J9KYAQc2xIbr/RFC-Dynamic-Memory-Budget-of-Streaming-Operators).
+
+In short, the idea is loop the following steps:
+
+1. **Measure**: Get the total memory usage from `jemalloc` lib. Currently we are using [`tikv_jemalloc_ctl::stats::allocated`](https://docs.rs/tikv-jemalloc-ctl/0.5.0/tikv_jemalloc_ctl/stats/struct.allocated.html), which might be a little bit less than the actual usage. That's why we have introduced "reserved" memory.
+2. **Policy**: The policy will take the current state as well as previous state to decide whether and how much memory should be released. We run policy every barrier interval i.e. 1 second. The difference between previous state and current stats gives the policy a feedback i.e. how much memory has been released since last decision, so it can adjust the policy accordingly. See lastest [`memory_management/policy.rs`](https://github.com/risingwavelabs/risingwave/blob/main/src/compute/src/memory_management/policy.rs) for details.
+3. **Action**: The policy increase a LRU "watermark" i.e. the lowerst epoch of data that should be kept in memory. Streaming executors will evict data with epoch lower than the watermark in proper time.
+
+This method has several drawbacks:
+
+1. It assumes the memory usage of streaming executors dominate the total usage, or in another words, it assumes the memory consumption of storage and batch engine are 0 or some consistand value. Obviously, this is a fragile assumption, and it is never true in practice.
+2. There is no gurantee that the streaming operators can evict data in time aka. in the 1-second feedback loop. The policy assumes all its decision has been applied, but this might not be the truth - some operators cannot react to the new watermark due to many reasons.
+
 
 Recently, [RFC: Coarse grained resource management for batch query engine](https://github.com/risingwavelabs/rfcs/pull/11) tried to control the memory of batch executors as well, but the 1st and 2nd version of the design was controversial because some designs were too complicated or infeasible. Luckily, the RFC has been refined a lot during the discussion, which finally comes to the solution of this RFC. 
 
