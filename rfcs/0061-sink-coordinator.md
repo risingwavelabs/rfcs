@@ -1,5 +1,5 @@
 ---
-feature: CDC Source Node (MySQL)
+feature: Sink Coordinator
 authors:
 
 - "wenym1"
