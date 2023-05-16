@@ -1,9 +1,8 @@
 ---
 feature: Sink Coordinator
 authors:
-
-- "wenym1"
-  start_date: "2023/5/15"
+  - "wenym1"
+start_date: "2023/5/15"
 
 ---
 
