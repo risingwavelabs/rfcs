@@ -139,7 +139,7 @@ The coordinated sink calls `write_batch` on the sink writer when receiving the s
 
 ```rust
 pub trait SinkCoordinator {
-	async fn init(&mut self, writer_info: Vec<SinkWriterInfo>) -> Result<()>;
+    async fn init(&mut self, writer_info: Vec<SinkWriterInfo>) -> Result<()>;
     async fn commit(&mut self, epoch: u64, metadata: Vec<Bytes>) -> Result<()>;
     async fn on_checkpoint_success(epoch: u64) -> Result<()>;
     async fn on_checkpoint_fail(epoch: u64) -> Result<()>;
@@ -166,7 +166,7 @@ In general, the two phase commit sink writer will follow the trait `CoordinatedS
 
 ```rust
 trait TwoPhaseCommitSinkCommitter {
-	async fn commit(&mut self, epoch: u64, metadata: Vec<Bytes>) -> Result<()>;
+    async fn commit(&mut self, epoch: u64, metadata: Vec<Bytes>) -> Result<()>;
     async fn abort(&mut self, epoch: u64, metadata: Vec<Bytes>) -> Result<()>;
 }
 ```
@@ -214,8 +214,8 @@ The `LogReader` and `Sink` trait will be changed to the following so that we can
 
 ```rust
 pub trait Sink {
-    **async fn init(&mut self) -> Result<Option<u64>>;
-    ...**
+    async fn init(&mut self) -> Result<Option<u64>>;
+    ...
 }
 ```
 
@@ -227,7 +227,7 @@ pub enum LogStoreReadItem {
 
 pub trait LogReader {
     /// Initialize the log reader. Usually function as waiting for log writer to be initialized.
-    async fn init(&mut self, **consumed_epoch: Option<u64>**) -> LogStoreResult<()>;
+    async fn init(&mut self, consumed_epoch: Option<u64>) -> LogStoreResult<()>;
     ...
 }
 ```
