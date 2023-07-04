@@ -18,7 +18,7 @@ Suppose the epoch of initial barrier is e1, backfill executor will scan the tabl
 
 When a new barrier comes, suppose the epoch is e2. The backfill executor will immediately stop fetching rows in snapshot e1 and flush changelog events with PK ≤ offset to downstream. Then it will continue scanning the table from the offset with snapshot e2.
 
-The backfill executor will not emit duplicated or conflicts events because it can always read a snapshot of the table that is exactly the same as the given epoch. However, when selecting a MySQL/Postgres table, **we don’t know what the exact binlog position being reading is**. That is the reason why the watermark-based algorithm mentioned in [RFC: CDC Source Parallel Snapshot](https://www.notion.so/RFC-CDC-Source-Parallel-Snapshot-a6ee43baf7834f328c01e624391568a7?pvs=21) proposes to bound the select snapshot in a binlog window.
+The backfill executor will not emit duplicated or conflicts events because it can always read a snapshot of the table that is exactly the same as the given epoch. However, when selecting a MySQL/Postgres table, **we don’t know what the exact binlog position being reading is**. That is the reason why the watermark-based algorithm proposes to bound the select snapshot in a binlog window.
 
 ![Watermark-based table selection](images/0062-cdc-with-backfill/snapshot-window.png)
 
