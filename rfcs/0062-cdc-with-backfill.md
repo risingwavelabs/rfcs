@@ -1,7 +1,5 @@
 # RFC: CDC Source with Backfill
 
-
-
 ## Motivation
 
 Ingesting a CDC source consists of two phases: full snapshot phase and incremental binlog phase. Currently we leverage the Debzium connector to ingest data from upstream databases, however there are several issues with the Debzium connector:
@@ -14,7 +12,7 @@ Previously, we discussed a solution that Flink CDC uses to support parallel and 
 
 ## Recap the backfill algorithm in RisingWave
 
-![Untitled](images/0060-cdc-with-backfill/table.png)
+![Untitled](images/0062-cdc-with-backfill/table.png)
 
 Suppose the epoch of initial barrier is e1, backfill executor will scan the table with snapshot e1 and maintain the scan progress with an offset. Meanwhile, it will buffer the changelog events in memory until a new barrier comes.
 
@@ -22,7 +20,7 @@ When a new barrier comes, suppose the epoch is e2. The backfill executor will im
 
 The backfill executor will not emit duplicated or conflicts events because it can always read a snapshot of the table that is exactly the same as the given epoch. However, when selecting a MySQL/Postgres table, **we don’t know what the exact binlog position being reading is**. That is the reason why the watermark-based algorithm mentioned in [RFC: CDC Source Parallel Snapshot](https://www.notion.so/RFC-CDC-Source-Parallel-Snapshot-a6ee43baf7834f328c01e624391568a7?pvs=21) proposes to bound the select snapshot in a binlog window.
 
-![                                 Watermark-based table selection](images/0060-cdc-with-backfill/snapshot-window.png)
+![Watermark-based table selection](images/0062-cdc-with-backfill/snapshot-window.png)
 
                                  Watermark-based table selection
 
@@ -42,7 +40,7 @@ We have our own storage layer and `Table` will always be materialized before emi
 
 ### Single parallelism
 
-![Single Parallelism](images/0060-cdc-with-backfill/single-parallel.png)
+![Single Parallelism](images/0062-cdc-with-backfill/single-parallel.png)
 
 - When receive a barrier, the source executor will first read the current binlog position as `binlog_begin`
 - After reading the binlog position, start a select query order by primary key for the whole external table
@@ -60,7 +58,7 @@ We have our own storage layer and `Table` will always be materialized before emi
 
 We can further parallel the above algorithm. And to prevent creating multiple changelog stream in the upstream database (each changelog stream requires an IO thread), we can add a new singleton **Changelog** operator to broadcast the changelog to each parallelism of the source executor.
 
-![Multi Parallelism](images/0060-cdc-with-backfill/multi-parallel.png)
+![Multi Parallelism](images/0062-cdc-with-backfill/multi-parallel.png)
 
 ## Failover
 
