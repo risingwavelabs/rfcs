@@ -293,7 +293,7 @@ create table [if not exist] source_1 (
 ```sql
 create table [if not exist] source_1 (
     "_id" jsonb,
-    "payload" varchar,
+    "payload" jsonb,
     primary key ( _id ) )
     format debezium_mongo encode [ JSON | AVRO | PROTOBUF ]
     with (
