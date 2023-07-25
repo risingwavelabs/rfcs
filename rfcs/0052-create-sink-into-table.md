@@ -30,6 +30,21 @@ The schema of the sink should be the same as the table.
 If the query generates an upsert sink, the primary key of the sink should be the same as that of the table.
 A circular streaming plan is forbidden, with `dependent_relations` we can easily do it.
 
+Additionally, we may introduce a `CREATE TABLE AS` syntax, which can be considered as a sugar of `CREATE TABLE (...)` and `CREATE SINK INTO` combined together. This syntax is also adopted by [Flink SQL](https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=199541185) and [ksqlDB](https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-reference/create-table-as-select/).
+
+```sql
+CREATE TABLE [table_name] AS select_query
+```
+
+To make it more usable for users, I would like to introduce another function to alter an exiting materialzied view to a table.
+
+```sql
+ALTER MATERIALIZED VIEW [mv_table] TO TABLE
+```
+
+This is because now we still recommend `create materialized view` at the first place instead of `create table as`. However, application developers are facing changes all the time, so it's very likely that they may realize they need to 'alter' an existing materialized view. Meanwhile, the strong consistency gurantee of MV prevents us to do any altering. With the help of `ALTER MATERIALIZED VIEW TO TABLE`, users can choose to break this consistency gurantee and alter their streaming pipelines.
+
+
 ### Implementation
 A simple idea is to just sink the rows into the DMLExecutor, but the path is unstable and the data could be lost if failover happens. A "At most once" sink is not good enough.
 We should do a configure change to connect the sink node to the table fragment, which can benefit from our checkpoint mechanism.
