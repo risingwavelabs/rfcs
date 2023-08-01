@@ -105,40 +105,79 @@ Btw, It often can be used to express UDAF too.
 
 ## Investigation
 
-Simple array expressions
+ Array expressions support. (All of them supports the `array_size/cardinality`, `unnest/flatten/explode` which is not listed in the table.)
 
-| array_sum | array_max/min | array_sort | array_zip | array_zip |
-|  ----  | ----  |
-|   |  |
-|   |  |
+|            | array_cnt | array_sum | array_cum_sum | array_avg |  array_max/min   | array_sort | array_distinct | array_zip | Unnest<br>with idx |
+| ---------- | :-------: | :-------: | :-----------: | :-------: | :--------------: | :--------: | :------------: | :-------: | :----------------: |
+| Databricks |           |           |               |           |        Y         |     Y      |       Y        |     Y     |         Y          |
+| Trino      |           |           |               |           |        Y         |     Y      |       Y        |     Y     |         Y          |
+| PrestoDB   |     Y     |     Y     |       Y       |     Y     |        Y         |     Y      |       Y        |     Y     |         Y          |
+| Starrocks  |     Y     |     Y     |       Y       |     Y     |        Y         |     Y      |       Y        |     Y     |                    |
+| Doris      |     Y     |     Y     |       Y       |     Y     |        Y         |     Y      |       Y        |     Y     |                    |
+| ClickHouse |     Y     |     Y     |       Y       |     Y     |        Y         |     Y      |       Y        |     Y     |                    |
+| DuckDB     |     Y     |     Y     |       Y       |     Y     |        Y         |     Y      |       Y        |           |                    |
+| Vertica    |     Y     |     Y     |               |     Y     |        Y         |            |                |           |         Y          |
+| FlinkSQL   |           |           |               |     Y     | only MAX, no MIN |            |                |           |                    |
+| Snowflake  |           |           |               |           |                  |            |       Y        |           |         Y          |
 
-array expressions with lambda expression paramter
 
-### PrestoDB
 
-PrestoDB supports many array aggregate expressions <https://trino.io/docs/current/functions/array.html?highlight=array#array_max>. Also it implement both scalar and aggregation lambda expression on array
+Array expressions with lambda expression paramter
 
-- <https://prestodb.io/blog/2020/03/02/presto-lambda>
+|            | transform | transform<br>with idx | filter | filter<br>with idx | sort cmp | reduce | UDAF  | Lambda Limitations                                                                                                     |
+| ---------- | --------- | --------------------- | ------ | ------------------ | -------- | ------ | :---: | ---------------------------------------------------------------------------------------------------------------------- |
+| Databricks | Y         | Y                     | Y      | Y                  | Y        | Y      |   Y   | No subquery, No SQL UDF                                                                                                |
+| Trino      | Y         |                       | Y      |                    | Y        | Y      |   Y   | No subquery, No Aggregations                                                                                           |
+| PrestoDB   | Y         |                       | Y      |                    | Y        | Y      |   Y   | No subquery, No Aggregations                                                                                           |
+| Starrocks  | Y         |                       | Y      |                    | Y        |        |       |                                                                                                                        |
+| Doris      | Y         |                       | Y      |                    | Y        |        |       |                                                                                                                        |
+| ClickHouse | Y         | Y                     | Y      | Y                  | Y        |        |       |                                                                                                                        |
+| DuckDB     | Y         |                       | Y      |                    |          |        |       |                                                                                                                        |
+| Vertica    | Y         | Y                     | Y      | Y                  | Y        |        |       | arg name [limitations](https://docs.vertica.com/23.3.x/en/sql-reference/language-elements/lambda-functions/#arguments) |
+| FlinkSQL   |           |                       |        |                    |          |        |       |                                                                                                                        |
+| Snowflake  |           |                       |        |                    |          |        |       |                                                                                                                        |
 
-And Trino support them too. <https://trino.io/docs/current/functions/array.html?highlight=array#reduce>
-
-### Starrocks
-
-### Doris
-
-### Databricks
-
-### ClickHouse
-
-<https://clickhouse.com/docs/en/sql-reference/functions#higher-order-functions---operator-and-lambdaparams-expr-function>
-
-## Motivation
-
-Why are you want to introduce the feature?
+  - No capture in lambda function, I think No system support refer column or sub query in the lambda function
+  - Snowflake do not anything about it and fall back to the `unnest/flatten/explode` https://stackoverflow.com/questions/62807878/how-to-get-maximum-value-from-an-array-column-in-snowflake
+  - [to confirm] Accroding to the doc, FlinkSQL only support flatten the array in join clause https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/sql/queries/joins/#array-expansion
+  - There are some Syntactic sugar. 
+    - Trino/PrestoDB/Starrocks: support pass multiple arrays in `unnest/flatten/explode` so that the arrays will do zip first.
+    - ClickHousr/Starrocks: `array_sum(lambda_function, arr1,arr2...) = array_sum(array_map(lambda_function, arr1,arr2...))`
+  - ClickHouse support any aggregation function on array directly, e.g. `SELECT arrayReduce('max', [1, 2, 3]);`
+  
+### Refers
+  - Databricks
+    - https://docs.databricks.com/sql/language-manual/sql-ref-lambda-functions.html
+    - https://docs.databricks.com/sql/language-manual/sql-ref-functions-builtin-alpha.html
+  - Trino
+    - https://trino.io/docs/current/functions/lambda.html
+    - https://trino.io/docs/current/functions/array.html?highlight=array#reduce
+    - https://trino.io/docs/current/functions/aggregate.html?highlight=lambda+expressions#lambda-aggregate-functions
+    - https://trino.io/docs/current/functions/array.html?highlight=array#array_max
+  - PrestoDB
+    - https://prestodb.io/blog/2020/03/02/presto-lambda
+    - https://prestodb.io/docs/current/functions/lambda.html
+    - https://prestodb.io/docs/current/functions/aggregate.html#reduce_agg
+  - Starrocks
+    - https://docs.starrocks.io/en-us/3.0/sql-reference/sql-functions/Lambda_expression
+  - Doris
+    - https://doris.apache.org/docs/dev/sql-manual/sql-functions/array-functions/array_max
+    - https://doris.apache.org/search?q=lambda
+  - ClickHouse
+    - https://clickhouse.com/docs/en/sql-reference/functions/array-functions
+    - https://clickhouse.com/docs/en/sql-reference/functions#higher-order-functions---operator-and-lambdaparams-expr-function
+  - DuckDB
+    - https://duckdb.org/docs/sql/functions/nested#list-aggregates
+    - https://duckdb.org/docs/sql/functions/nested#lambda-functions
+  - Vertica
+    - https://docs.vertica.com/23.3.x/en/sql-reference/language-elements/lambda-functions/
+  - FlinkSQL
+    - https://nightlies.apache.org/flink/flink-docs-master/docs/dev/table/functions/systemfunctions/
 
 ## Design
-
-Explain the feature in detail.
+[TODO]
+We can support missing array function's at first and they has been implemented for aggregators so we can reuse the code.
+For the lambda expression, it is like a anonymous SQL UDF. We can implement the SQL UDF first and design lambda expression later.
 
 ## Unresolved questions
 
