@@ -180,15 +180,16 @@ We can support missing array function's at first and they has been implemented f
 For the lambda expression, it is like a anonymous SQL UDF. We can implement the SQL UDF first and design lambda expression later.
 
 ## Unresolved questions
+[TODO]
 
 - Are there some questions that haven't been resolved in the RFC?
 - Can they be resolved in some future RFCs?
 - Move some meaningful comments to here.
 
 ## Alternatives
-
+[TODO]
 What other designs have been considered and what is the rationale for not choosing them?
 
 ## Future possibilities
-
+[TODO]
 Some potential extensions or optimizations can be done in the future based on the RFC.
