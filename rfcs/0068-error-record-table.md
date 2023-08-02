@@ -20,14 +20,23 @@ We want to introduce the Error Record Table (ERT) to resolve the problem.
 There are several benefits to maintain the error records ourselves:
 
 1. We can ensure that our storage engine can handle the volume of erroneous data, as it is of the same magnitude as the source.
-2. Users can view the error records directly over psql.
-3. Users can reproduce the error easily by the similar SQL.
+2. We can ensure the error records are durable.
+3. Users can view the error records directly over psql.
+4. Users can reproduce the error easily by the similar SQL.
+
+Some common errors include:
+
+1. Expression errors (division by zero, cast fail, json extraction fail)
+2. UDF errors (timeout, invalid records, user errors)
+3. Source error (paring failed)
 
 ## Design
 
 ### Creating
 
 The ERTs are automatically created as internal tables when an operator is created. In most cases, an operator will have n ERTs, where n corresponds to the number of inputs it has.
+
+Connectors should also ouptut the error records to the source ERT.
 
 ### Naming
 
@@ -52,7 +61,7 @@ We can even give a SQL to query the error record in the log entry if it's helpfu
 
 ## Unresolved questions
 
-Should we allow creating sink over ERT?
+Should we allow creating sink over ERT? (Similar to side_output in Flink)
 
 ## Alternatives
 
@@ -60,6 +69,8 @@ One alternative solution is to output the complete error record directly to the 
 
 1. The data record may be too large to record, e.g. several tens of KB.
 2. Errors may occur continuously, causing the log system to fill up quickly.
+
+From the viewpoint of users, many of them do not consider logs as being reliable. In our default error handling approach, we do not halt the stream when encountering stream errors, which may lead users to anticipate greater reliability in those logs.
 
 ## Future possibilities
 
