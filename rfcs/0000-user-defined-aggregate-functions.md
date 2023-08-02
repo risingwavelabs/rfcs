@@ -239,4 +239,31 @@ The output would be:
 
 ## Alternatives
 
+### Aggregate Function Class as the Accumulator
+
+This proposal follows the Flink API, which defines a separate class as the accumulator. There is an alternative design to define the accumulator as the aggregate function class itself. For example:
+
+```python
+@udaf(input_types=['BIGINT', 'INT'], result_type='BIGINT')
+class WeightedAvg:
+    sum: int
+    count: int
+
+    def __init__(self):
+        self.sum = 0
+        self.count = 0
+
+    def get_value(self) -> int:
+        if self.count == 0:
+            return None
+        else:
+            return self.sum / self.count
+
+    def accumulate(self, value: int, weight: int):
+        self.sum += value * weight
+        self.count += weight
+```
+
+This is simpler and more intuitive, but is also less flexible than the previous design. The previous design allows direct arguments (e.g. `percentile_cont(fraction)`, `rank(n)`) to be passed to the aggregate function, while this alternative requires the arguments to be stored in the state.
+
 ## Future possibilities
