@@ -17,75 +17,67 @@ This section describes how users create UDAFs in Python, Java, and SQL through e
 
 ### Python API
 
-Similar to scalar functions and table functions, we provide an `@udaf` decorator to define aggregate functions. The difference is that below the decorator, we define a class instead of a function. The class is an **accumulator** that accumulates the input rows and computes the aggregate result. It can also optionally retracts a row and merges with another accumulator.
+Similar to scalar functions and table functions, we provide an `@udaf` decorator to define aggregate functions. The difference is that below the decorator, we define a class instead of a function. The class has an associated **accumulator** type, which is the intermediate state of the aggregate function.
 
 ```python
 from risingwave.udf import udaf
+
+# The accumulator (intermediate state) can be arbitrary class.
+# It will be serialized into bytes before sending to kernel,
+# and deserialized from bytes after receiving from kernel.
+class State:
+    sum: int
+    count: int
 
 # The aggregate function is defined as a class.
 # Specify the schema of the aggregate function in the `udaf` decorator.
 @udaf(input_types=['BIGINT', 'INT'], result_type='BIGINT')
 class WeightedAvg:
-    # The internal state of the accumulator is defined as fields.
-    # They will be serialized into bytes before sending to kernel,
-    # and deserialized from bytes after receiving from kernel.
-    sum: int
-    count: int
-
-    # Initialize the accumulator.
-    def __init__(self):
-        self.sum = 0
-        self.count = 0
+    # Create an empty accumulator.
+    def create_accumulator(self) -> State:
+        accumulator = State()
+        accumulator.sum = 0
+        accumulator.count = 0
+        return accumulator
 
     # Get the aggregate result.
     # The return value should match `result_type`.
-    def get_value(self) -> int:
-        if self.count == 0:
+    def get_value(self, accumulator: State) -> int:
+        if accumulator.count == 0:
             return None
         else:
-            return self.sum / self.count
+            return accumulator.sum / accumulator.count
 
-    # Accumulate a row.
-    # The arguments should match `input_types`.
-    def accumulate(self, value: int, weight: int):
-        self.sum += value * weight
-        self.count += weight
+    # Accumulate a row to the accumulator.
+    # The last arguments should match `input_types`.
+    def accumulate(self, accumulator: State, value: int, weight: int):
+        accumulator.sum += value * weight
+        accumulator.count += weight
 
-    # Retract a row.
+    # Retract a row from the accumulator.
     # This method is optional. If not defined, the function is append-only and not retractable.
-    def retract(self, value: int, weight: int):
-        self.sum -= value * weight
-        self.count -= weight
+    def retract(self, accumulator: State, value: int, weight: int):
+        accumulator.sum -= value * weight
+        accumulator.count -= weight
 
-    # Merge with another accumulator.
+    # Merge the accumulator with another one.
     # This method is optional. If defined, the function can be optimized with two-phase aggregation.
-    def merge(self, other: WeightedAvg):
-        self.count += other.count
-        self.sum += other.sum
+    def merge(self, accumulator: State, other: State):
+        accumulator.count += other.count
+        accumulator.sum += other.sum
+
+    # Serialize the accumulator into bytes.
+    # This method is optional. If not defined, the accumulator would be serialized using pickle.
+    def serialize(self, accumulator: State) -> bytes:
+        # default implementation
+        return pickle.dumps(accumulator)
+
+    # Deserialize the bytes into an accumulator.
+    # This method is optional. If not defined, the accumulator would be deserialized using pickle.
+    def deserialize(self, serialized: bytes) -> State:
+        # default implementation
+        return pickle.loads(serialized)
 ```
-
-#### Alternative
-
-In Flink, the accumulator is a separate variable passed into functions as an argument.
-
-```python
-class WeightedAvg(AggregateFunction):
-    def get_accumulator_type(self):
-        return 'ROW<f0 BIGINT, f1 BIGINT>'
-
-    def create_accumulator(self):
-        # Row(sum, count)
-        return Row(0, 0)
-
-    def get_value(self, accumulator):
-        # ...
-
-    def accumulate(self, accumulator, value, weight):
-        accumulator[0] += value * weight
-        accumulator[1] += weight
-```
-
-While in this proposal, the accumulator is the class itself. Users don't have to define the accumulator type explicitly.
 
 Reference: [UDAF Python API in Flink](https://nightlies.apache.org/flink/flink-docs-release-1.17/docs/dev/python/table/udfs/python_udfs/#aggregate-functions)
 
@@ -94,47 +86,53 @@ Reference: [UDAF Python API in Flink](https://nightlies.apache.org/flink/flink-d
 The Java API is similar to Python. One of the differences is that users don't need to specify the input and output types, because we can infer them from the function signatures.
 
 ```java
+import java.io.Serializable;
 import com.risingwave.functions.AggregateFunction;
 
-// The aggregate function is defined as a class, which implements the `AggregateFunction` interface.
-public static class WeightedAvg implements AggregateFunction {
-    // The internal state of the accumulator is defined as class fields.
+// Mutable accumulator for the aggregate function.
+// This class should be Serializable.
+public class WeightedAvgAccumulator implements Serializable {
     public long sum = 0;
     public int count = 0;
+}
 
+// The aggregate function is defined as a class, which implements the `AggregateFunction` interface.
+public class WeightedAvg implements AggregateFunction {
     // Create a new accumulator.
-    public WeightedAvg() {}
+    public WeightedAvgAccumulator createAccumulator() {
+        return new WeightedAvgAccumulator();
+    }
 
     // Get the aggregate result.
     // The result type is inferred from the signature. (BIGINT)
     // If a Java type can not infer to an unique SQL type, it should be annotated with `@DataTypeHint`.
-    public Long getValue() {
-        if (count == 0) {
+    public Long getValue(WeightedAvgAccumulator acc) {
+        if (acc.count == 0) {
             return null;
         } else {
-            return sum / count;
+            return acc.sum / acc.count;
         }
     }
 
-    // Accumulate a row.
+    // Accumulate a row to the accumulator.
     // The input types are inferred from the signatures. (BIGINT, INT)
     // If a Java type can not infer to an unique SQL type, it should be annotated with `@DataTypeHint`.
-    public void accumulate(long iValue, int iWeight) {
-        sum += iValue * iWeight;
-        count += iWeight;
+    public void accumulate(WeightedAvgAccumulator acc, long iValue, int iWeight) {
+        acc.sum += iValue * iWeight;
+        acc.count += iWeight;
     }
 
-    // Retract a row. (optional)
+    // Retract a row from the accumulator. (optional)
     // The function signature should match `accumulate`.
-    public void retract(long iValue, int iWeight) {
-        sum -= iValue * iWeight;
-        count -= iWeight;
+    public void retract(WeightedAvgAccumulator acc, long iValue, int iWeight) {
+        acc.sum -= iValue * iWeight;
+        acc.count -= iWeight;
     }
 
-    // Merge with another accumulator. (optional)
-    public void merge(WeightedAvg a) {
-        count += a.count;
-        sum += a.sum;
+    // Merge the accumulator with another one. (optional)
+    public void merge(WeightedAvgAccumulator acc, WeightedAvgAccumulator other) {
+        acc.count += other.count;
+        acc.sum += other.sum;
     }
 }
 ```
