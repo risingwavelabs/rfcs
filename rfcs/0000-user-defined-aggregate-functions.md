@@ -26,8 +26,8 @@ from risingwave.udf import udaf
 # It will be serialized into bytes before sending to kernel,
 # and deserialized from bytes after receiving from kernel.
 class State:
-    sum: int
-    count: int
+    sum: int = 0
+    count: int = 0
 
 # The aggregate function is defined as a class.
 # Specify the schema of the aggregate function in the `udaf` decorator.
@@ -35,14 +35,11 @@ class State:
 class WeightedAvg:
     # Create an empty state.
     def create_state(self) -> State:
-        state = State()
-        state.sum = 0
-        state.count = 0
-        return state
+        return State()
 
     # Get the aggregate result.
     # The return value should match `result_type`.
-    def get_value(self, state: State) -> int:
+    def get_result(self, state: State) -> int:
         if state.count == 0:
             return None
         else:
@@ -106,7 +103,7 @@ public class WeightedAvg implements AggregateFunction {
     // Get the aggregate result.
     // The result type is inferred from the signature. (BIGINT)
     // If a Java type can not infer to an unique SQL type, it should be annotated with `@DataTypeHint`.
-    public Long getValue(WeightedAvgState acc) {
+    public Long getResult(WeightedAvgState acc) {
         if (acc.count == 0) {
             return null;
         } else {
@@ -152,7 +149,7 @@ The full syntax is:
 
 ```sql
 CREATE [ OR REPLACE ] AGGREGATE name ( [ argname ] arg_data_type [ , ... ] )
-[ RETURNS return_data_type ] [ APPEND ONLY ]
+[ RETURNS result_data_type ] [ APPEND ONLY ]
 [ LANGUAGE language ] [ AS identifier ] [ USING LINK link ];
 ```
 
@@ -206,9 +203,9 @@ sequenceDiagram
 
 The state of UDAF is managed by the compute node as a single encoded BYTEA value.
 
-Currently, each aggregate operator has a **result table** to store the aggregate result. For most of our built-in aggregate functions, they have the same output as their state, so the result table is actually being used as the state table. However, for general UDAFs, their state may not be the same as their output. Such functions are not supported for now.
+Currently, each aggregate operator has a **result table** to store the aggregate result. For most of our built-in aggregate functions, they have the same output as their state, so the result table is actually being used as the **intermediate state table**. However, for general UDAFs, their state may not be the same as their output. Such functions are not supported for now.
 
-Therefore, we propose to **transform the result table into state table**. The content of the table remains the same for existing functions. But for new functions whose state is different from output, only the state is stored. The output can be computed from the state when needed.
+Therefore, we propose to **transform the result table into intermediate state table**. The content of the table remains the same for existing functions. But for new functions whose state is different from output, only the state is stored. The output can be computed from the state when needed.
 
 For example, given the input:
 
@@ -218,14 +215,14 @@ For example, given the input:
 | 2     | U-   | 0       | 1    | 2    | false |
 | 2     | U+   | 0       | 2    | 1    | true  |
 
-The new **state table** (derived from old result table) of the agg operator would be like:
+The new **intermediate state table** (inherited from the old result table) of the agg operator would be like:
 
 | Epoch | id   | sum(v0) | bool_and(v1)        | weighted_avg(v0, w0) | max(v0)*   |
 | ----- | ---- | ------- | ------------------- | -------------------- | ---------- |
 | 1     | 0    | sum = 1 | false = 1, true = 0 | encode(1,2) = b'XXX' | output = 1 |
 | 2     | 0    | sum = 2 | false = 0, true = 1 | encode(2,1) = b'YYY' | output = 2 |
 
-* For **append-only** aggregate functions (e.g. max, min, first, last, string_agg...), their states are all input values maintained in seperate "materialized input" tables. For backward compatibility, their values in the state table are still aggregate results.
+Note: for **append-only** aggregate functions (e.g. max, min, first, last, string_agg...), their states are all input values maintained in seperate "materialized input" tables. For backward compatibility, their values in the state table are still aggregate results.
 
 The output would be:
 
@@ -253,7 +250,7 @@ class WeightedAvg:
         self.sum = 0
         self.count = 0
 
-    def get_value(self) -> int:
+    def get_result(self) -> int:
         if self.count == 0:
             return None
         else:
