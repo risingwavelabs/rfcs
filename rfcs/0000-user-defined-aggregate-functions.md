@@ -17,12 +17,12 @@ This section describes how users create UDAFs in Python, Java, and SQL through e
 
 ### Python API
 
-Similar to scalar functions and table functions, we provide an `@udaf` decorator to define aggregate functions. The difference is that below the decorator, we define a class instead of a function. The class has an associated **accumulator** type, which is the intermediate state of the aggregate function.
+Similar to scalar functions and table functions, we provide an `@udaf` decorator to define aggregate functions. The difference is that below the decorator, we define a class instead of a function. The class has an associated type for **intermediate state**.
 
 ```python
 from risingwave.udf import udaf
 
-# The accumulator (intermediate state) can be arbitrary class.
+# The intermediate state can be arbitrary class.
 # It will be serialized into bytes before sending to kernel,
 # and deserialized from bytes after receiving from kernel.
 class State:
@@ -33,47 +33,47 @@ class State:
 # Specify the schema of the aggregate function in the `udaf` decorator.
 @udaf(input_types=['BIGINT', 'INT'], result_type='BIGINT')
 class WeightedAvg:
-    # Create an empty accumulator.
-    def create_accumulator(self) -> State:
-        accumulator = State()
-        accumulator.sum = 0
-        accumulator.count = 0
-        return accumulator
+    # Create an empty state.
+    def create_state(self) -> State:
+        state = State()
+        state.sum = 0
+        state.count = 0
+        return state
 
     # Get the aggregate result.
     # The return value should match `result_type`.
-    def get_value(self, accumulator: State) -> int:
-        if accumulator.count == 0:
+    def get_value(self, state: State) -> int:
+        if state.count == 0:
             return None
         else:
-            return accumulator.sum / accumulator.count
+            return state.sum / state.count
 
-    # Accumulate a row to the accumulator.
+    # Accumulate a row to the state.
     # The last arguments should match `input_types`.
-    def accumulate(self, accumulator: State, value: int, weight: int):
-        accumulator.sum += value * weight
-        accumulator.count += weight
+    def accumulate(self, state: State, value: int, weight: int):
+        state.sum += value * weight
+        state.count += weight
 
-    # Retract a row from the accumulator.
+    # Retract a row from the state.
     # This method is optional. If not defined, the function is append-only and not retractable.
-    def retract(self, accumulator: State, value: int, weight: int):
-        accumulator.sum -= value * weight
-        accumulator.count -= weight
+    def retract(self, state: State, value: int, weight: int):
+        state.sum -= value * weight
+        state.count -= weight
 
-    # Merge the accumulator with another one.
+    # Merge the state with another one.
     # This method is optional. If defined, the function can be optimized with two-phase aggregation.
-    def merge(self, accumulator: State, other: State):
-        accumulator.count += other.count
-        accumulator.sum += other.sum
+    def merge(self, state: State, other: State):
+        state.count += other.count
+        state.sum += other.sum
 
-    # Serialize the accumulator into bytes.
-    # This method is optional. If not defined, the accumulator would be serialized using pickle.
-    def serialize(self, accumulator: State) -> bytes:
+    # Serialize the state into bytes.
+    # This method is optional. If not defined, the state would be serialized using pickle.
+    def serialize(self, state: State) -> bytes:
         # default implementation
-        return pickle.dumps(accumulator)
+        return pickle.dumps(state)
 
-    # Deserialize the bytes into an accumulator.
-    # This method is optional. If not defined, the accumulator would be deserialized using pickle.
+    # Deserialize the bytes into an state.
+    # This method is optional. If not defined, the state would be deserialized using pickle.
     def deserialize(self, serialized: bytes) -> State:
         # default implementation
         return pickle.loads(serialized)
@@ -89,24 +89,24 @@ The Java API is similar to Python. One of the differences is that users don't ne
 import java.io.Serializable;
 import com.risingwave.functions.AggregateFunction;
 
-// Mutable accumulator for the aggregate function.
+// Mutable intermediate state for the aggregate function.
 // This class should be Serializable.
-public class WeightedAvgAccumulator implements Serializable {
+public class WeightedAvgState implements Serializable {
     public long sum = 0;
     public int count = 0;
 }
 
 // The aggregate function is defined as a class, which implements the `AggregateFunction` interface.
 public class WeightedAvg implements AggregateFunction {
-    // Create a new accumulator.
-    public WeightedAvgAccumulator createAccumulator() {
-        return new WeightedAvgAccumulator();
+    // Create a new state.
+    public WeightedAvgState createState() {
+        return new WeightedAvgState();
     }
 
     // Get the aggregate result.
     // The result type is inferred from the signature. (BIGINT)
     // If a Java type can not infer to an unique SQL type, it should be annotated with `@DataTypeHint`.
-    public Long getValue(WeightedAvgAccumulator acc) {
+    public Long getValue(WeightedAvgState acc) {
         if (acc.count == 0) {
             return null;
         } else {
@@ -114,23 +114,23 @@ public class WeightedAvg implements AggregateFunction {
         }
     }
 
-    // Accumulate a row to the accumulator.
+    // Accumulate a row to the state.
     // The input types are inferred from the signatures. (BIGINT, INT)
     // If a Java type can not infer to an unique SQL type, it should be annotated with `@DataTypeHint`.
-    public void accumulate(WeightedAvgAccumulator acc, long iValue, int iWeight) {
+    public void accumulate(WeightedAvgState acc, long iValue, int iWeight) {
         acc.sum += iValue * iWeight;
         acc.count += iWeight;
     }
 
-    // Retract a row from the accumulator. (optional)
+    // Retract a row from the state. (optional)
     // The function signature should match `accumulate`.
-    public void retract(WeightedAvgAccumulator acc, long iValue, int iWeight) {
+    public void retract(WeightedAvgState acc, long iValue, int iWeight) {
         acc.sum -= iValue * iWeight;
         acc.count -= iWeight;
     }
 
-    // Merge the accumulator with another one. (optional)
-    public void merge(WeightedAvgAccumulator acc, WeightedAvgAccumulator other) {
+    // Merge the state with another one. (optional)
+    public void merge(WeightedAvgState acc, WeightedAvgState other) {
         acc.count += other.count;
         acc.sum += other.sum;
     }
@@ -184,7 +184,7 @@ sequenceDiagram
     Note over AG: load state<br/>from state table
     AG ->>+ CP: doExchange(fid, state)
     CP -->> AG: output @ epoch
-    Note right of CP: decode state,<br/>create accumulator
+    Note right of CP: decode state,<br/>create state
     loop each epoch
         loop each chunk
             UP ->> AG: input chunk
@@ -239,9 +239,9 @@ The output would be:
 
 ## Alternatives
 
-### Aggregate Function Class as the Accumulator
+### Aggregate Function Class as the State
 
-This proposal follows the Flink API, which defines a separate class as the accumulator. There is an alternative design to define the accumulator as the aggregate function class itself. For example:
+This proposal follows the Flink API, which defines a separate class as the intermediate state. There is an alternative design to define the state as the aggregate function class itself. For example:
 
 ```python
 @udaf(input_types=['BIGINT', 'INT'], result_type='BIGINT')
