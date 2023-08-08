@@ -1,5 +1,5 @@
 ---
-feature: my_excited_feature
+feature: lambda_expression
 authors:
   - "st1page"
 start_date: "2023/08/01"
