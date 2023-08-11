@@ -11,7 +11,7 @@ start_date: "2023/08/01"
 
 To better support user's semi-structure data, We have supported `Array` and `Struct` types compatible with PG. But in some user's requirement, We found we can not support them easily.
 
-### Induction
+### Introduction
 
 ```SQL
 CREATE TABLE t(
