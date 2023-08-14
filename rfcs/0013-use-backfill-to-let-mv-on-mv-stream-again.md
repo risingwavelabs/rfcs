@@ -7,6 +7,10 @@ start_date: "2022/11/04"
 
 # Use Backfill To Let Mv On Mv Stream Again
 
+## Backfill definition
+
+To backfill: The act of replaying historical data. 
+
 ## Summary
 
 Currently, if we want to create a mv A on another mv B, we need to first scan mv B with a snapshot which will cause us to buffer all stream update messages from mv B during the snapshot reading. This unbounded buffer will consume unbounded memory and also make the streaming processing stuck in some way. This RFC tries to use backfill to save mv-on-mv from buffering all update steam messages.
