@@ -84,18 +84,6 @@ SELECT
   COUNT(*)
 FROM TUMBLE(dwd_orders, order_time, INTERVAL '1' HOUR)
 GROUP BY window_start, product;
-
-alter dws_product_per_hour ADD sell_cnt BIGINT;
-
-CREATE SINK order_production_sum_analyze_per_hour_job INTO dws_product_per_hour AS 
-SELECT 
-  window_start,
-  product,
-  NULL as click_cnt,
-  NULL as sell_cnt,
-  sum(price)
-FROM TUMBLE(dwd_orders, order_time, INTERVAL '1' HOUR)
-GROUP BY window_start, product;
 ```
 
 ### provide user more control over the result table
@@ -161,7 +149,82 @@ GROUP BY window_start;
 ```
 
 ### SQL evolution
-This case is very similar to some AP system's conditional-updates behavior. https://docs.starrocks.io/en-us/latest/loading/Load_to_Primary_Key_tables#conditional-updates
+After decoupling the sink and the table. Users have chance to change the sink's SQL by drop the old sink and rebuild the new sink to the table. In that case, the table's downstream will not be affected. 
+But RW can not give consistent guarantee, so user must give additional declaration in SQL.
+
+I summarize two patterns here
+- Backfill: If user have all historical data in the upstream table, he can drop the old the create the new sink to the table
+  - 👍 Easy to understand. No more SQL rewritten
+  - 👍 eventually consistency
+  - 👎 The result table and all its down stream mv's version will rollback and seems a stale read for user.
+  - 👎 Long time to backfill and re-compute all the data.
+  - 👎 In some cases, user can not get all upstream historical data such as a kafka source with TTL.  
+- Apply delta: User can determine a timestamp of event time to determine use the old sink or the new sink to update the result table.
+  - 👍 No result rollback
+  - 👍 Incremental computation
+  - 👎 Limited with event time column in the result table.
+  - 👎 Might be complex for user to write on conflict.
+
+Examples :
+1. This is a Backfill case but user define a proper on conflict behavior with the monotonically increasing `order_cnt` to prevent data rollback. 
+```SQL
+  CREATE TABLE dwd_orders (
+    user VARCHAR,
+    product VARCHAR,
+    price BIGINT,
+    event_time TIMESTAMP,
+) APPEND ONLY;
+
+CREATE TABLE dws_product (
+  product VARCHAR,
+  order_cnt BIGINT,
+  PRIMARY KEY (product)
+) WITH (
+  'ttl' = '7d'
+  -- only update when the new incoming row's order_cnt is larger than the old order_cnt
+) ON CONFLICT DO UPDATE SET (product, order_cnt) = (
+      CASE WHEN EXCLUDED.order_cnt IS NOT NULL AND EXCLUDED.order_cnt > order_cnt 
+        THEN EXCLUDED.product ELSE product 
+      END,
+      CASE WHEN EXCLUDED.order_cnt IS NOT NULL AND EXCLUDED.order_cnt > order_cnt 
+        THEN EXCLUDED.order_cnt, order_cnt ELSE order_cnt 
+      END)
+
+CREATE SINK order_production_analyze_job INTO dws_product AS 
+SELECT 
+  window_start,
+  product,
+  COUNT(*) as order_cnt,
+FROM dwd_orders
+GROUP BY product
+WITH (
+  -- because the table's on- conflict behavior can only applied on the “INSERT” conflict，so we need use force append-only sink here.
+  force_append_only = 'true'
+);
+
+-- when the user want to add an new aggregator
+ALTER TABLE dws_product ADD sell_sum BIGINT ON CONFLICT DO UPDATE SET 
+  sell_cnt = CASE WHEN EXCLUDED.order_cnt IS NOT NULL AND EXCLUDED.order_cnt > order_cnt 
+                  THEN EXCLUDED.sell_sum ELSE sell_sum 
+             END;
+CREATE SINK new_order_production_analyze_job INTO dws_product AS 
+SELECT 
+  window_start,
+  product,
+  COUNT(*) as order_cnt,
+  sum(price) as sell_sum,
+FROM dwd_orders
+GROUP BY window_start, product
+WITH (
+  force_append_only = 'true'
+);
+
+-- when the new job catch up
+DROP SINK order_production_analyze_job;
+ALTER SINK new_order_production_analyze_job RENAME TO order_production_analyze_job;
+```
+
+2. Apply delta
 
 ```SQL
   CREATE TABLE dwd_orders (
@@ -181,17 +244,7 @@ CREATE TABLE dws_product_per_hour (
   PRIMARY KEY (hour, product)
 ) WITH (
   'ttl' = '7d'
-  -- only update when the new incoming row's order_cnt is larger than the old order_cnt
-) ON CONFLICT DO UPDATE SET (hour, product, order_cnt) = (
-      CASE WHEN EXCLUDED.order_cnt IS NOT NULL AND EXCLUDED.order_cnt > order_cnt 
-        THEN EXCLUDED.hour ELSE hour 
-      END,
-      CASE WHEN EXCLUDED.order_cnt IS NOT NULL AND EXCLUDED.order_cnt > order_cnt 
-        THEN EXCLUDED.product ELSE product 
-      END,
-      CASE WHEN EXCLUDED.order_cnt IS NOT NULL AND EXCLUDED.order_cnt > order_cnt 
-        THEN EXCLUDED.order_cnt, order_cnt ELSE order_cnt 
-      END,)
+) ON CONFLICT DO UPSERT;
 
 CREATE SINK order_production_analyze_per_hour_job INTO dws_product_per_hour AS 
 SELECT 
@@ -205,20 +258,30 @@ WITH (
   force_append_only = 'true'
 );
 
--- when the user want to add an new aggregator
-alter dws_product_per_hour ADD sell_sum BIGINT ON CONFLICT DO UPDATE SET 
-  sell_cnt = CASE WHEN EXCLUDED.order_cnt IS NOT NULL AND EXCLUDED.order_cnt > order_cnt 
-                  THEN EXCLUDED.sell_sum ELSE sell_sum 
-             END;
+ALTER TABLE dws_product ADD sell_sum BIGINT;
+ALTER TABLE dws_product_per_hour ADD column sql_version int default 0;
+
+-- This case is very similar to some AP system's conditional-updates behavior. https://docs.starrocks.io/en-us/latest/loading/Load_to_Primary_Key_tables#conditional-updates
+ALTER TABLE ON CONFLICT DO UPDATE 
+  SET (hour, product, order_cnt, sell_sum, sql_version) = (
+    CASE WHEN EXCLUDED.sql_version = 0 AND hour < '2020-10-10 00:00:00' 
+        THEN (EXCLUDED.hour,EXCLUDED.product,EXCLUDED.order_cnt,EXCLUDED.sell_sum,EXCLUDED.sql_version)
+      WHEN EXCLUDED.sql_version = 1 AND hour >= '2020-10-10 00:00:00'
+        THEN (EXCLUDED.hour,EXCLUDED.product,EXCLUDED.order_cnt,EXCLUDED.sell_sum,EXCLUDED.sql_version)
+      -- do not update
+      ELSE (hour, product, order_cnt, sell_sum, sql_version) 
+    END)
+
 CREATE SINK new_order_production_analyze_per_hour_job INTO dws_product_per_hour AS 
 SELECT 
   window_start,
   product,
   COUNT(*) as order_cnt,
   sum(price) as sell_sum,
+  1 as sql_version,
 FROM TUMBLE(dwd_orders, order_time, INTERVAL '1' HOUR)
 -- omit unnecessary historical data
-WHERE order_time > '${1-days-ago}'
+WHERE window_start >= '2010-10-10 00:00:00'
 GROUP BY window_start, product
 WITH (
   force_append_only = 'true'
@@ -228,11 +291,40 @@ WITH (
 DROP SINK order_production_analyze_per_hour_job;
 ALTER SINK new_order_production_analyze_per_hour_job RENAME TO order_production_analyze_per_hour_job;
 ```
+In fact the complex ON CONFLICT behavior and the `sql_version` column are just because we can not add a filter condition on the exist streaming job, It can be replaced by "alter mv" feature too.
+
+```SQL
+ALTER TABLE dws_product ADD sell_sum BIGINT;
+ALTER order_production_analyze_per_hour_job AS SELECT 
+  window_start,
+  product,
+  COUNT(*) as order_cnt
+FROM TUMBLE(dwd_orders, order_time, INTERVAL '1' HOUR)
+GROUP BY window_start, product
+WHERE window_start < '2010-10-10 00:00:00'
+WITH (
+  -- because the table's on- conflict behavior can only applied on the “INSERT” conflict，so we need use force append-only sink here.
+  force_append_only = 'true'
+);
+
+CREATE SINK new_order_production_analyze_per_hour_job INTO dws_product_per_hour AS 
+SELECT 
+  window_start,
+  product,
+  COUNT(*) as order_cnt,
+  sum(price) as sell_sum
+FROM TUMBLE(dwd_orders, order_time, INTERVAL '1' HOUR)
+WHERE window_start >= '2010-10-10 00:00:00'
+GROUP BY window_start, product
+WITH (
+  force_append_only = 'true'
+);
+```
 
 ## Design
 ### Syntax and semantics
 ```SQL
-  CREATE SINK [sink_name] INTO [table_name] AS select_query
+  CREATE SINK sink_name INTO table_name [( column_name [, ...])] AS select_query
 ```
 All the behavior is the same with a sink into an external table with a connector. 
 The schema of the sink should be the same as the table.
@@ -242,13 +334,13 @@ A circular streaming plan is forbidden, with `dependent_relations` we can easily
 Additionally, we may introduce a `CREATE TABLE AS` syntax, which can be considered as a sugar of `CREATE TABLE (...)` and `CREATE SINK INTO` combined together. This syntax is also adopted by [Flink SQL](https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=199541185) and [ksqlDB](https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-reference/create-table-as-select/).
 
 ```sql
-CREATE TABLE [table_name] AS select_query
+CREATE TABLE table_name AS select_query
 ```
 
 To make it more usable for users, I would like to introduce another function to alter an exiting materialzied view to a table.
 
 ```sql
-ALTER MATERIALIZED VIEW [mv_table] TO TABLE
+ALTER MATERIALIZED VIEW mv_table TO TABLE
 ```
 
 This is because now we still recommend `create materialized view` at the first place instead of `create table as`. However, application developers are facing changes all the time, so it's very likely that they may realize they need to 'alter' an existing materialized view. Meanwhile, the strong consistency gurantee of MV prevents us to do any altering. With the help of `ALTER MATERIALIZED VIEW TO TABLE`, users can choose to break this consistency gurantee and alter their streaming pipelines.
