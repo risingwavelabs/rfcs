@@ -1,7 +1,8 @@
 ---
 feature: create_sink_into_table
 authors:
-  - "st1page", "Eric Fu"
+  - "st1page"
+  - "Eric Fu"
 start_date: "2023/02/15"
 ---
 
