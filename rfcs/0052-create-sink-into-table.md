@@ -1,7 +1,7 @@
 ---
 feature: create_sink_into_table
 authors:
-  - "st1page"
+  - "st1page", "Eric Fu"
 start_date: "2023/02/15"
 ---
 
@@ -321,21 +321,28 @@ WITH (
 );
 ```
 
-## Design
-### Syntax and semantics
+## Syntax, semantics and behaviors
+
+### create sink into table
+
 ```SQL
   CREATE SINK sink_name INTO table_name [( column_name [, ...])] AS select_query
 ```
-All the behavior is the same with a sink into an external table with a connector. 
-The schema of the sink should be the same as the table.
-If the query generates an upsert sink, the primary key of the sink should be the same as that of the table.
+All the behavior is the same with a sink into an external table with a connector. The number of the column_names should be the same with the number of the columns of the sink's schema. If the column names are not specified, the tables full schema(all not hidden columns).
+
+For the table with pk, all the pk columns should be determined the sink's schema. And for the table without pk, the sink must be append-only.
+
 A circular streaming plan is forbidden, with `dependent_relations` we can easily do it.
+
+### create table as 
 
 Additionally, we may introduce a `CREATE TABLE AS` syntax, which can be considered as a sugar of `CREATE TABLE (...)` and `CREATE SINK INTO` combined together. This syntax is also adopted by [Flink SQL](https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=199541185) and [ksqlDB](https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-reference/create-table-as-select/).
 
 ```sql
 CREATE TABLE table_name AS select_query
 ```
+
+### alter mv to table
 
 To make it more usable for users, I would like to introduce another function to alter an exiting materialzied view to a table.
 
@@ -345,36 +352,37 @@ ALTER MATERIALIZED VIEW mv_table TO TABLE
 
 This is because now we still recommend `create materialized view` at the first place instead of `create table as`. However, application developers are facing changes all the time, so it's very likely that they may realize they need to 'alter' an existing materialized view. Meanwhile, the strong consistency gurantee of MV prevents us to do any altering. With the help of `ALTER MATERIALIZED VIEW TO TABLE`, users can choose to break this consistency gurantee and alter their streaming pipelines.
 
-The two SQL statement both require **Allow a sink and a table have the same name**. It is ok in our system because the sink will never appear in the FROM clause. An alternative is that we can add a `_sink` suffix on the sink's name.
+The statement requires **Allow a sink and a table have the same name**. It is ok in our system because the sink will never appear in the FROM clause. An alternative is that we can add a `_sink` suffix on the sink's name.
 
 ### Implementation
 
+Thanks for @BugenZhao and @shanicky's offline discussion.
 #### CREATE SINK into TABLE
-In our current design, a table's plan must be like this. The Hash's exchange must exist because the DML executor depend on it.
-```
-  DML -> (optional) RowIdGen -> Exchange(Hash) -> Materialize
-```
-So when a new sink created into this table, we can just connect the blackhole Sink plan to a exchange.
 
-#### Alter MV TO TABLE
+Currently, the table's plan is shown as the graph. In brief, the table's data can comes from the external source or BatchDML. And the DMLExec is used here as a side input. ![](./images/0052-sink-to-table/cur-table-plan.png).
 
-Some Limitation:
-1. the mv's primary key can not be hidden column
-2. we can ban the mv with singlton distribution temporally
+The `create sink to table` introduces more data sources for the table. And now RW has implemented stream Union executor and RowIdGen with specified distribution. So we can support it more clearly with these new features.
+![](./images/0052-sink-to-table/new-table-plan.png)
 
-```
-  upstream -> Materialize
-```
-We have 2 choice here:
-just add a DML fragment on the top of the materialized view plan. This is easy to support but might introduce some complexity when drop the sink.
-```
-  upstream -> Sink -> exchange(NoShuffle) -> DML -> exchange(hash) -> Materialize(check pk)
-```
-And we can also rebuild the whole plan which is the same with the `CREATE TABLE` and `CREATE SINK TO TABLE` to unify the patterns.
-```
-  SourceExec -> DML ->
-  upstream -> Sink -> exchange(hash) -> Materialize(check pk)
-```
+Here are some Q&A for the details of the graph
+- What's the difference between "append only table" and "table without pk"?
+  - The only difference is that if Update/delte on the table is allowed. which make the non-append only table without pk
+    - not append only, so the watermark is not allowed on it.
+    - the DML changes must be hash shuffled to the materialize fragment.
+    - the materialize must handle pk conflict for the DML changes.
+  - maybe we will support alter table between append only and non-append only in future.  
+- Why do we need blackhole SinkExecutor here? 
+  - we have some special logic in the sink executor such as `force-append-only` and special compaction when the down stream's pk does not contain stream key, we can reuse these logic in SinkExecutor to maintain the same behvaior with other kind of sinks.
+- "Exchange Any"
+  - It appears on the append only stream whose row_id column has not been generated. So any uniform shuffle strategy is ok here. 
+- Why not move the ProjectExec for the generated column on the Materialize's fragment?
+  - when there is a user defined pk on the table. The pk might contains generated column, which will be used to shuffle. So it must be generated before the exchange executor.
+  - when there is no pk, we can move it on the MaterializeExecutor's fragment. But I prefer make it consistent with the case having pk.
+- Default column Project
+  - For the Insert statement, the default column is handled in the batchInsert executor. To achieve the same behavior for the create sink into table, we must handle it between the sink and the materialize executor.
+
+#### Alter MV to Table
+
 
 The catalog changes 
 1. the sink and the table's streaming plan should be independent and in different `table fragments`
