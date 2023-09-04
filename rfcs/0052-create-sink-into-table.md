@@ -91,6 +91,7 @@ GROUP BY window_start, product;
 - Do DML on it and do modifications
 - define Primary key and on conflict behavior
 - define a TTL on the table
+  - But it will introduce wrong check pk behavior and give the downstream an illegal changes stream 
 
 ![](./images/0052-sink-to-table/1.png)
 ```SQL 
