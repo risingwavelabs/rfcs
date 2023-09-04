@@ -296,7 +296,7 @@ In fact the complex ON CONFLICT behavior and the `sql_version` column are just b
 
 ```SQL
 ALTER TABLE dws_product ADD sell_sum BIGINT;
-ALTER order_production_analyze_per_hour_job AS SELECT 
+ALTER SINK order_production_analyze_per_hour_job AS SELECT 
   window_start,
   product,
   COUNT(*) as order_cnt
