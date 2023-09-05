@@ -358,7 +358,7 @@ Currently, we can just support it with limitation that the mv's primary key can 
 
 The statement requires **Allow a sink and a table have the same name**. It is ok in our system because the sink will never appear in the FROM clause. An alternative is that we can add a `_sink` suffix on the sink's name.
 
-### Implementation
+## Implementation
 
 Thanks for @BugenZhao and @shanicky's offline discussion.
 #### CREATE SINK into TABLE
