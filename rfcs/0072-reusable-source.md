@@ -20,7 +20,7 @@ Recall that most source has more or less historical data. For message brokers in
 
 Let's assume that the Kafka client library is stupid and RisingWave needs to read the historical data by itself. Then, it turns out this procedure is quite similar to the backfilling procedure of tables. Recall that when a new materialized view is created, we introduce a `BackfillExecutor` to read the historical data. Here we can solve the problem with the same idea by dividing it into 2 phases: 1) backfill and 2) consume new events.
 
-![](images/0061-reusable-source/reusable-source.png)
+![](images/0072-reusable-source/reusable-source.png)
 
 Here,
 
