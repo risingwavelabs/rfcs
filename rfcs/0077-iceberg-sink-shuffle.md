@@ -45,8 +45,10 @@ There are two possible implementations for this feature:
 flowchart TD
     A[Source] --> B[IcebergPartitionOperator]
     B --> C[DispatcherExecutor]
-    C -->|partition_value| D[IcebergSink]
+    C -->|"partition_value"| D[IcebergSink]
 ```
+
+The `IcebergPartitionExecutor` will be a `StreamExecutor`, which calculates the partition value of each record and adds it to the record. The `DispatcherExecutor` doesn't need to change much, and do hash shuffle according to the partition value.
 
 2. Extend dispatcher executor to support iceberg partition shuffle. The plan is like following:
 
@@ -56,11 +58,14 @@ flowchart TD
     B -->|IcebergDispatcher| C[IcebergSink]
 ```
 
+In this approach we need to add an extra `IcebergDispatcher` to dispatcher executor. The `IcebergDispatcher` will calculate the partition value of each record and do hash shuffle according to the partition value.
+
 I prefer approach 1 since it's more extensible and does not change too much current shuffle implementation, e.g. other lakehouse sinks (delta lake) could have similar approach.
 
 ### Caveats
 
 When iceberg partition spec only contains range partitions(e.g. year, month, day), we don't need to do this shuffle, otherwise all traffic will go to same sink.
+Also we need to reject upsert queries where partition columns is not a subset of the `stream_pk`. 
 
 ## References
 
