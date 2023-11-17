@@ -38,15 +38,13 @@ flowchart TD
     Start((start))
     End((end))
     Start --> append_only{Sink append only?}
-    
     append_only -->|yes| iceberg_range_only_part{Range only partition?}
-    iceberg_range_only_part -->|yes| no_shuffle(No shuffle) 
+    iceberg_range_only_part -->|yes| no_shuffle(No shuffle)
     iceberg_range_only_part -->|no| append_only_shuffle(Shuffle by partition columns)
     no_shuffle --> End
     append_only_shuffle --> End
-    
     append_only -->|no| upsert_iceberg_range_only_part{Range only partition?}
-    upsert_iceberg_range_only_part -->|yes| upsert_shuffle_by_stream_part_key(Shuffle by stream key + partition columns)
+    upsert_iceberg_range_only_part -->|yes| upsert_shuffle_by_stream_part_key(Shuffle by stream key)
     upsert_shuffle_by_stream_part_key --> End
     upsert_iceberg_range_only_part -->|No| upsert_shuffle_by_part_key(Shuffle by partition columns)
     upsert_shuffle_by_part_key --> End
@@ -137,7 +135,7 @@ CREATE SINK s0 AS SELECT * FROM t0 WITH (
 );
 ```
 
-In this case we need to shuffle by `(years(ts), id)` to avoid all traffic go to same actor. 
+In this case we need to shuffle by `id` to avoid all traffic go to same actor. Since in most cases upstream is already shuffled by `id`, we can avoid another shuffle.
 
 
 ### Case 4: Upsert table with not range only partition
