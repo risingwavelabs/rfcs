@@ -5,7 +5,7 @@ authors:
 start_date: "2023/11/15"
 ---
 
-# PreRFC:  Minimal mview recommandation for speeding up Time-Series queries
+# PreRFC:  Minimal mview recommendation for speeding up Time-Series queries
 
 ## Motivation
 
@@ -67,7 +67,7 @@ I would like to propose some proposals, but I do not have a clear preference.
 
 ## Designs
 
-### Materialized View Recommandation and Selection
+### Materialized View Recommendation and Selection
 
 This is a very ideal solution, where users directly submit their parameterized serving queries to us instead of the definition of materialized views.
 
