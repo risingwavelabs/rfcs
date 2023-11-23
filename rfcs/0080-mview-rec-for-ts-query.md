@@ -100,7 +100,8 @@ For the materialized view selection, we'll provide several guarantees:
 
 1. If the function is called directly, it'll always be speedup by the mviews.
 2. If the query is **eactly** match the function pattern, it'll always be speedup by the mviews.
-3. Otherwise, no guarentee, we'll try our best :(
+3. If the query is speedup by a previous version of RisingWave, we'll not break it.
+4. Otherwise, no guarantee, we'll try our best :(
 
 The potential of MView recommendation is very significant. For example, if we obtain more information than the definition of MView, we can know whether MView serves point queries or range queries, which is very helpful for our storage and compaction strategy.
 
