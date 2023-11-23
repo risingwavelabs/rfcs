@@ -1,7 +1,7 @@
 ---
 feature: Decouple iceberg sink commit from risingwave checkpoint
 authors:
-- "liurenjie1024"
+- "Renjie Liu, Yiming Wen"
   start_date: "2023/11/20"
 ---
 
@@ -9,7 +9,7 @@ authors:
 
 ## Motivation
 
-Currently, the iceberg sink commit is coupled with risingwave checkpoint, e.g. we commit changes to iceberg table when risingwave checkpoint is triggered. During our talk with some lakehouse user, we found that they want to commit changes to iceberg table less frequently than risingwave checkpoint. For example, they want to do checkpoint every several seconds, while commit changes to iceberg table should be much less frequent, e.g. every 5 to 10 minutes. Frequently commit changes to iceberg table will cause too many small files in iceberg table, which will cause performance issue when querying or maintaining iceberg table. In this proposal we want to allow user to have some way to control the frequency of committing changes to iceberg table so that it's more flexible.
+Currently, the iceberg sink commit is coupled with risingwave checkpoint, e.g. we commit changes to iceberg table when risingwave checkpoint is triggered. During our talk with some lakehouse user, we found that they want to commit changes to iceberg table less frequently than risingwave checkpoint. For example, they want to do checkpoint every several seconds for to get fresh view of materialized view, while commit changes to iceberg table should be much less frequent, e.g. every 5 to 10 minutes. Frequently commit changes to iceberg table will cause too many small files in iceberg table, which will cause performance issue when querying or maintaining iceberg table. In this proposal we want to allow user to have some way to control the frequency of committing changes to iceberg table so that it's more flexible.
 
 ## Design
 
@@ -28,7 +28,64 @@ To simplify failure recovery, we still need to commit changes to iceberg table w
 
 #### Approach 1
 
-Modify sink log writer to trigger sink checkpoint every 5 checkpoint.
+Modify sink log writer to trigger sink checkpoint every 5 checkpoint. Following diagram illustrates the process:
+
+```mermaid
+sequenceDiagram
+
+participant LogStore 
+participant LogReader
+participant SinkWriter
+
+Note right of SinkWriter: Failure recovery point from last checkpoint
+
+LogStore ->> LogReader: Chunk
+LogReader ->> SinkWriter: Chunk
+LogStore ->> LogReader: Barrier
+LogReader ->> SinkWriter: Barrier
+rect rgb(191, 223, 255)
+LogStore ->> LogReader: Checkpoint
+LogReader ->> SinkWriter: Barrier
+end
+
+LogStore ->> LogReader: Chunk
+LogReader ->> SinkWriter: Chunk
+LogStore ->> LogReader: Barrier
+LogReader ->> SinkWriter: Barrier
+rect rgb(191, 223, 255)
+LogStore ->> LogReader: Checkpoint
+LogReader ->> SinkWriter: Barrier
+end
+
+LogStore ->> LogReader: Chunk
+LogReader ->> SinkWriter: Chunk
+LogStore ->> LogReader: Barrier
+LogReader ->> SinkWriter: Barrier
+rect rgb(191, 223, 255)
+LogStore ->> LogReader: Checkpoint
+LogReader ->> SinkWriter: Barrier
+end
+
+LogStore ->> LogReader: Chunk
+LogReader ->> SinkWriter: Chunk
+LogStore ->> LogReader: Barrier
+LogReader ->> SinkWriter: Barrier
+rect rgb(191, 223, 255)
+LogStore ->> LogReader: Checkpoint
+LogReader ->> SinkWriter: Barrier
+end
+
+LogStore ->> LogReader: Chunk
+LogReader ->> SinkWriter: Chunk
+LogStore ->> LogReader: Barrier
+LogReader ->> SinkWriter: Barrier
+rect rgb(200, 150, 255)
+LogStore ->> LogReader: Checkpoint
+LogReader ->> SinkWriter: Checkpoint
+end
+```
+
+To avoid dead lock caused by some misconfiguration, e.g. allowed in flight checkpoint number, we need to enable partial checkpoint of log store.
 
 Pros of this approach:
 
@@ -53,9 +110,9 @@ There are chances we don't even need to flush row group. For example we can save
 
 The content of `SerializedFileWriter` can be found [here](https://docs.rs/parquet/latest/src/parquet/file/writer.rs.html#128-140), essentially it's row group metadata and some statistics information. We need to fork and maintain `parquet` to extract them.
 
-The states in sink executor are essentially maps from `(executor id, partition value)` to `filename list`. When handling scaling in/out of actors, we should do a commit to iceberg table. There are other possible solutions to better handle it, but given that this doesn't happen frequently, I think it's acceptable without introducing too much complexity.
+The states in sink executor are essentially maps from `(executor id, partition value)` to `filename list`. When handling scaling in/out of actors, we should do a commit to iceberg table. There are other possible solutions to better handle it, but given that this doesn't happen frequently, I think it's acceptable without introducing too much complexity. After we decouple sink with mv using log store, it's no longer easy to maintain state table for sink executors, so we need to submit these states coordinator in every checkpoint and store them in metastore. The worst case of number of state entries is: $ executor\_num * partition\_num\_of\_iceberg * 5 $.
 
-As with how to append to parquet file after closing, we take different approaches for different file systems. If the file system supports `append` operation, it would be quite easy for our implementation. For s3, we are supposed to use [multipart upload](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html) to simulate this process.
+As with how to append to parquet file after closing, we need to rely on [multipart upload](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html), e.g. we concat different row groups to one parquet when doing actual committing. This is supported in almost all systems, even in hdfs 3, but not available hdfs 2.
 
 Pros of this approach:
 
