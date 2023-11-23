@@ -24,7 +24,7 @@ Personally I'm in favor of first option, which will not introduce any surprise t
 
 ### Implementation
 
-To simplify failure recovery, we still need to commit changes to iceberg table when risingwave checkpoint is triggered, but we don't need to commit changes to iceberg table every time. In following example let's assume that $ commit\_interval \div checkpoint\_interval $ is $5$.
+To simplify failure recovery, we still need to commit changes to iceberg table when risingwave checkpoint is triggered, but we don't need to commit changes to iceberg table every time. In following example let's assume that $commit\_interval \div checkpoint\_interval$ is $5$.
 
 #### Approach 1
 
