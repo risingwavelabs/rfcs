@@ -16,6 +16,8 @@ Currently, we have lots of config, switch and parameter for the streaming execut
   - `TOPN_CACHE_HIGH_CAPACITY_FACTOR` https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/src/stream/src/executor/top_n/top_n_cache.rs#L30
 - in specified stream plan node's proto, such as 
   - `OverWindowCachePolicy` https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/proto/stream_plan.proto#L676-L690, 
+  - `rate_limit` https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/proto/stream_plan.proto#L164
+    - And it can be altered with a special barrier command https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/proto/stream_plan.proto#L85
 - stored in the `StreamGraph` as a `StreamEnvironment`, such as 
   - `timezone`. https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/proto/stream_plan.proto#L829-L832, https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/proto/meta.proto#L100
     - It is expected not to alter, which will be explained below
@@ -38,6 +40,7 @@ The RFC will not concern those config can change the streaming graph and its top
 Also, the RFC do not associate with those node-level config such as `exchange_initial_permits` 
 
 These are just some example configs that **must not** including in the framework, there still are some vague config need to be discussed case by case, which mainly depends on if it is needed to be different between different streaming jobs, such as `chunk_size` and `connector_message_buffer_size`.
+
 ## Unified streaming job configs
 
 We will introduce "dynamic stream config" concept to the user. The config entries in that can be set in the with clause when creating and we have a lots of discussion in the issue https://github.com/risingwavelabs/risingwave/issues/11929.
