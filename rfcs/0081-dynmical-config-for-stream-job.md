@@ -65,10 +65,17 @@ User will be able to alter the dynamic stream config for specified MV or SINK wi
 ```SQL
 ALTER [MATERIALIZED VIEW | SINK] SET parameter TO [value | 'value'];
 ```
-The statement will send a RPC to meta. After reducing the config in the common place, it is easier to alter the config of some relations. And we need some implementation complexity trade-off here. There are three implementation sort from easy to hard.
+The statement will send a RPC to meta. After reducing the config in the common place, it is easier to alter the config of some relations. And we need some implementation complexity trade-off here.
 
 1. alter with recovery: change the configs in the meta store and trigger a recovery. Then the newly created actor will adopt the new configs.
 2. alter by the local stream manager: the meta send a barrier with a alter config command. When the barrier receiver receive a barrier with alter config command want to change its own actor, it will stop to poll the input channel and attach the input channel on the barrier. then pass the barrier. When local stream manager collect this barrier, it can build the new actor with the channel rx on the barrier. And because the barrier has been committed in the local state store and no data after the barrier input, the correctness can be ensured. The disadvantages is that all cache are lost with the old actors and the performance is influenced.
 3. alter in each executor: every stream executor must can receive the alter config barrier and adopt the new config.
+4. The issue of the barrier based alter is that the barrier latency could be large and in that case, the config can not be altered in timely manner. https://github.com/risingwavelabs/risingwave/issues/13803 
+   1. So we can introduce a control channel to all the executors like this https://github.com/risingwavelabs/risingwave/pull/4834 so that the executor can get the 
+   2. another method is store a config in the task local and executor should check if the config in the task local has been changed periodically(maybe with a config version). 
 
-Maybe the third is easier than the second one. We can discuss it later.
+The second is too complex to implement and can also introduce performance performance degradation. The 4.1 control channel will intrude every executor's logic. So personally, I'd like to eliminate them first.
+
+And the 3,4 maybe can not satisfy all the config and the executor can only change the config with recreating itself.
+
+I think we can implement the recovery based alter first and optimize the configs with 3 or 4.2 later.
