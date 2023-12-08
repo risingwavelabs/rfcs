@@ -11,15 +11,17 @@ Thanks all the people took part in the discussion of https://github.com/risingwa
 
 ## Background
 Currently, we have lots of config, switch and parameter for the streaming execution. They often used for performance optimization for different workload. But they distributed different places currently.
-- constant value in code, can not alter, such as 
+- hardcode as constant value, can not alter, such as 
   - `STATE_CLEANING_PERIOD_EPOCH` https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/src/stream/src/common/table/state_table.rs#L65
   - `TOPN_CACHE_HIGH_CAPACITY_FACTOR` https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/src/stream/src/executor/top_n/top_n_cache.rs#L30
-  - `max_dirty_groups_heap_size` https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/src/stream/src/executor/test_utils.rs#L506
 - in specified stream plan node's proto, such as 
   - `OverWindowCachePolicy` https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/proto/stream_plan.proto#L676-L690, 
 - stored in the `StreamGraph` as a `StreamEnvironment`, such as 
   - `timezone`. https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/proto/stream_plan.proto#L829-L832, https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/proto/meta.proto#L100
     - It is expected not to alter, which will be explained below
+- stores as the global config such as 
+  - `max_dirty_groups_heap_size` https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/src/common/src/config.rs#L801
+
 And in future we might introduce more parameters for streaming, such as `log_store_capacity`.
 
 In other database, those parameter is declared by session variable or session config. It is because the compute task is bounded in those batch system and it is not necessary to alter the config for a running job. But for a long-running streaming job, alter the config for a created and processing job is needed.
@@ -33,6 +35,9 @@ The RFC will not concern those config can change the streaming graph and its top
 - The configs that can change the plan such as `RW_TWO_PHASE_AGG`
 - The configs that can change the actor's number such as `STREAMING_PARALLELISM` (maybe we can use the same syntax to alter it later, but it will be only a semantic sugar of scale)
 
+Also, the RFC do not associate with those node-level config such as `exchange_initial_permits` 
+
+These are just some example configs that **must not** including in the framework, there still are some vague config need to be discussed case by case, which mainly depends on if it is needed to be different between different streaming jobs, such as `chunk_size` and `connector_message_buffer_size`.
 ## Unified streaming job configs
 
 We will introduce "dynamic stream config" concept to the user. The config entries in that can be set in the with clause when creating and we have a lots of discussion in the issue https://github.com/risingwavelabs/risingwave/issues/11929.
