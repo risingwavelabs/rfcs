@@ -7,7 +7,7 @@ start_date: "2023/12/07"
 
 # Dynamic Config For Stream Job
 
-Thanks all the people took part in the discussion of https://github.com/risingwavelabs/risingwave/issues/11929 and implantation of `stream_rate_limit`. The RFC is hight inspired by them.
+Thanks all the people took part in the discussion of https://github.com/risingwavelabs/risingwave/issues/11929 and implementation of `stream_rate_limit`. The RFC is inspired by them.
 
 ## Background
 Currently, we have lots of config, switch and parameter for the streaming execution. They often used for performance optimization for different workload. But they distributed different places currently.
