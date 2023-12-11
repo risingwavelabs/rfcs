@@ -35,7 +35,7 @@ This RFC will introduce a dynamic config framework to make user
 
 The RFC will not concern those config can change the streaming graph and its topology, such as
 - The configs that can change the plan such as `RW_TWO_PHASE_AGG`
-- The configs that can change the actor's number such as `STREAMING_PARALLELISM` (maybe we can use the same syntax to alter it later, but it will be only a semantic sugar of scale)
+- The configs that can change the actor's number such as `STREAMING_PARALLELISM` (maybe we can use the same syntax to alter it later, but it will be only a syntactic sugar of scale)
 
 Also, the RFC do not associate with those node-level config such as `exchange_initial_permits` 
 
