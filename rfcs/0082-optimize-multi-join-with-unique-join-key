@@ -5,7 +5,7 @@ authors:
 start_date: "2023/10/04"
 ---
 
-# Multi-join Specifically Optimized for joining unique key(star/snowflake schema)
+# Optimized multi-join with unique key(star/snowflake schema)
 
 ## Summary
 
