@@ -61,7 +61,11 @@ Also, the RFC do not associate with those node-level config such as `memory_limi
 These are just some example configs that **must not** including in the framework, there still are some vague config need to be discussed case by case, which mainly depends on if it is needed to be different between different streaming jobs, such as `chunk_size`(If it is meaningful to have different chunk_size for each streaming job in the same cluster) and `connector_message_buffer_size`(It looks more like a configuration per source?).
 
 
-**WIP TO REWRITE THE FOLLOWING PARTS**
+# ***WIP TO REWRITE THE FOLLOWING PARTS***
+# ***WIP TO REWRITE THE FOLLOWING PARTS***
+# ***WIP TO REWRITE THE FOLLOWING PARTS***
+# ***WIP TO REWRITE THE FOLLOWING PARTS***
+# ***WIP TO REWRITE THE FOLLOWING PARTS***
 
 
 ## Unified streaming job configs
