@@ -1,16 +1,21 @@
 ---
-feature: Dynamic Config For Stream Job
+feature: Parameters for each streaming job
 authors:
   - "st1page"
 start_date: "2023/12/07"
 ---
 
-# Dynamic Config For Stream Job
+# Parameters for each streaming job(Sink/MV)
 
 Thanks all the people took part in the discussion of https://github.com/risingwavelabs/risingwave/issues/11929 and implementation of `stream_rate_limit`. The RFC is inspired by them.
 
 ## Background
-Currently, we have lots of config, switch and parameter for the streaming execution. They often used for performance optimization for different workload. But they distributed different places currently.
+
+In some cases, we need to give different streaming jobs different configuration, which is for
+- performance optimization for different workload.
+- Guaranteed some streaming job's QoS with configuring different parameters such as `rate_limit` or `log_store_buffer_capacity` 
+
+But they distributed different places currently.
 - hardcode as constant value, can not alter, such as 
   - `STATE_CLEANING_PERIOD_EPOCH` https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/src/stream/src/common/table/state_table.rs#L65
   - `TOPN_CACHE_HIGH_CAPACITY_FACTOR` https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/src/stream/src/executor/top_n/top_n_cache.rs#L30
@@ -23,23 +28,41 @@ Currently, we have lots of config, switch and parameter for the streaming execut
     - It is expected not to alter, which will be explained below
 - stores as the global config such as 
   - `max_dirty_groups_heap_size` https://github.com/risingwavelabs/risingwave/blob/a8aa905ef26ef8c00f55a7c5b8ce76e6a0f7b72d/src/common/src/config.rs#L801
+- And in future we might introduce more parameters for streaming, such as `log_store_buffer_capacity`.
 
-And in future we might introduce more parameters for streaming, such as `log_store_capacity`.
+In other database or batch system, the query is bounded and can be terminated over a period of time. Their parameters is often declared by session config and be determined when the task is created. But for a long-running streaming job, alter the config for a created and running job is needed, especially when the MV is dependent by other MVs, hard to drop and rebuild.
 
-In other database, those parameter is declared by session variable or session config. It is because the compute task is bounded in those batch system and it is not necessary to alter the config for a running job. But for a long-running streaming job, alter the config for a created and processing job is needed.
+## Summary 
 
-This RFC will introduce a dynamic config framework to make user
-- can declare those configuration when create streaming job
-- can alter those configuration for a long-running streaming job. 
+- introduce concept of Sink/MV-levels parameters, give user unified interface to 
+  - set the parameter in the with clause when creating new MV/Sink.
+  - alter the parameter of a created MV/Sink(running streaming job).
+- Discuss the relation of the Sink/MV-levels parameters with session config and system parameters
+- analyze the mutability of the parameters, divided into 3 levels.
+  - immutable, such as `timezone`
+  - should applied in all places at the same time, such as `exchange_permits`
+  - can applied with eventually-consistency, most of the parameters.
+- Correspondingly, from the user's perspective, parameters's mutability divided into 3 levels
+  - immutable, must be determined when the task is created.
+  - changing on next recovery.
+  - changing without recovery.
+- Discuss the implementation of the parameters changes without recovery
+  - Actor-level control channel https://github.com/risingwavelabs/risingwave/pull/4834
+  - versioned configMap in `TaskLocal` 
+
 ### Non-Goals
 
 The RFC will not concern those config can change the streaming graph and its topology, such as
 - The configs that can change the plan such as `RW_TWO_PHASE_AGG`
 - The configs that can change the actor's number such as `STREAMING_PARALLELISM` (maybe we can use the same syntax to alter it later, but it will be only a syntactic sugar of scale)
 
-Also, the RFC do not associate with those node-level config such as `exchange_initial_permits` 
+Also, the RFC do not associate with those node-level config such as `memory_limit` 
 
-These are just some example configs that **must not** including in the framework, there still are some vague config need to be discussed case by case, which mainly depends on if it is needed to be different between different streaming jobs, such as `chunk_size`(If it is meaningful to have different chunk_size for each actors) and `connector_message_buffer_size`(It looks more like a configuration per source?).
+These are just some example configs that **must not** including in the framework, there still are some vague config need to be discussed case by case, which mainly depends on if it is needed to be different between different streaming jobs, such as `chunk_size`(If it is meaningful to have different chunk_size for each streaming job in the same cluster) and `connector_message_buffer_size`(It looks more like a configuration per source?).
+
+
+**WIP TO REWRITE THE FOLLOWING PARTS**
+
 
 ## Unified streaming job configs
 
