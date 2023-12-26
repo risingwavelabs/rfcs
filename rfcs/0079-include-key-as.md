@@ -61,8 +61,8 @@ format ... encode ... ( ... )
 |--------------------|--------------------------------------------|---------------------------------------------------|
 | key                | `bytea`                                    | Allow overwritten by `encode` and `key encode`    |
 | timestamp          | `timestamp with time zone` (i64 in millis) | Refer to `CreateTime` rather than `LogAppendTime` |
-| partition          | `i64`                                      | The message is from which partition               |
-| offset             | `i64`                                      | The offset in the partition                       |
+| partition          | `varchar`                                      | The message is from which partition               |
+| offset             | `varchar`                                      | The offset in the partition                       |
 | header             | `struct<varchar, bytea>[]`                 | KV pairs along with message                       |
 
 ### Pulsar
@@ -70,6 +70,8 @@ format ... encode ... ( ... )
 | Allowed Components | Default Type | Note                                                                                      |
 |--------------------|--------------|-------------------------------------------------------------------------------------------|
 | key                | `bytea`      | Allow overwritten by `encode` and `key encode`. Refer to `MessageMetadata::partition_key` |
+| partition          | `varchar`        | The message is from which partition                                                       |
+| offset             | `varchar`        | The offset in the partition                                                               |
 
 More components are available at [here](https://docs.rs/pulsar/latest/pulsar/message/proto/struct.MessageMetadata.html).
 
@@ -79,6 +81,8 @@ More components are available at [here](https://docs.rs/pulsar/latest/pulsar/mes
 |--------------------|------------------------------------------|----------------------------------------------------------------------------------|
 | key                | `bytea`                                  | Allow overwritten by `encode` and `key encode`. Refer to `Record::partition_key` |
 | timestamp          | `timestamp with time zone` (from chrono) | refer to `Record::approximate_arrival_timestamp`                                 |
+| partition          | `varchar`                                    | The message is from which partition                                              |
+| offset             | `varchar`                                    | The offset in the partition                                                      |
 
 More components are available at [here](https://docs.rs/aws-sdk-kinesis/latest/aws_sdk_kinesis/types/struct.Record.html).
 
@@ -86,4 +90,5 @@ More components are available at [here](https://docs.rs/aws-sdk-kinesis/latest/a
 
 | Allowed Components | Default Type | Note                              |
 |--------------------|--------------|-----------------------------------|
-| file               | varchar      | The record comes from which file. |
+| file               | `varchar`      | The record comes from which file. |
+| offset             | `varchar`      | The offset in the file            |
