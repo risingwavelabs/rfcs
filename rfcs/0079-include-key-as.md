@@ -82,7 +82,7 @@ More components are available at [here](https://docs.rs/pulsar/latest/pulsar/mes
 | key                | `bytea`                                  | Allow overwritten by `encode` and `key encode`. Refer to `Record::partition_key` |
 | timestamp          | `timestamp with time zone` (from chrono) | refer to `Record::approximate_arrival_timestamp`                                 |
 | partition          | `varchar`                                    | The message is from which partition                                              |
-| offset             | `varchar`                                    | The offset in the partition                                                      |
+| offset             | `varchar`                                    | The offset in the partition. Corresponds to Kinesis sequence numbers.                                                     |
 
 More components are available at [here](https://docs.rs/aws-sdk-kinesis/latest/aws_sdk_kinesis/types/struct.Record.html).
 
