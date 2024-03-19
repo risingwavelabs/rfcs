@@ -29,7 +29,7 @@ We always store SECRETs as bytea type, which maximally ensures that the informat
 create table t ( ... )
 with (
     ...
-    properties.sasl.password = s-<secret-name>
+    properties.sasl.password = secret <secret-name>
 )
 ```
 
