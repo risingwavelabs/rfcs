@@ -19,7 +19,7 @@ and preventing abuse of API keys by developers.
 
 ```sql
 -- create secret
-create secret <secret-name> as <expr>
+create secret <secret-name> from <expr>
 ```
 
 We always store SECRETs as bytea type, which maximally ensures that the information we store can adapt to different usage requirements.
@@ -29,7 +29,7 @@ We always store SECRETs as bytea type, which maximally ensures that the informat
 create table t ( ... )
 with (
     ...
-    properties.sasl.password = secret <secret-name>
+    properties.sasl.password = s-<secret-name>
 )
 ```
 
