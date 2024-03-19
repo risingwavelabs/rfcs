@@ -10,14 +10,16 @@ start_date: "2024/03/18"
 ## Background
 
 This RFC proposes a new syntax and implementation for securely storing and referencing sensitive information,
-such as database passwords and API keys, in SQL statements using a SECRET catalog. 
-The goal is to enhance the security of production environments by encrypting sensitive data and applying access controls.
+such as database passwords and API keys, in SQL statements using a SECRET catalog.
+
+The primary goals are to enhance the security of production environments by encrypting sensitive data, applying access controls, 
+and preventing abuse of API keys by developers.
 
 ## Proposed Syntax
 
 ```sql
 -- create secret
-create scecret <secret-name> as <expr>
+create secret <secret-name> as <expr>
 ```
 
 We always store SECRETs as bytea type, which maximally ensures that the information we store can adapt to different usage requirements.
@@ -47,8 +49,11 @@ To control storage consumption on meta nodes, the maximum length of a single SEC
 
 ### Security Considerations
 
-Storing SECRETs in meta nodes is unavoidable, but access controls and encryption will be applied to protect the sensitive information.
-The impact on existing code will be minimized through the implementation approach described above.
+* Access Control: Administrators can create SECRETs and allow other developers to reference them without exposing the actual API keys or sensitive information. 
+  This prevents abuse of API keys by developers.
+* Encryption: Storing SECRETs in meta nodes is unavoidable, but encryption will be applied to protect the sensitive information. 
+  SECRETs will never be displayed in plain text, even to administrators.
+* Updating SECRETs: In the future, an ALTER SECRET command will be supported to allow overwriting existing SECRETs without revealing the original value.
 
 ### Backward Compatibility
 
