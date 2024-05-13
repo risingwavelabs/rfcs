@@ -3,7 +3,7 @@
 feature: Spill Hash Aggregation
 authors:
   - "DylanChen"
-start_date: "2024/05/11"
+start_date: "2024/05/13"
 
 ---
 
@@ -16,6 +16,8 @@ RisingWave batch queries are executed purely in memory currently which could eas
 ## Design
 
 As we know a batch query would be fragmented into different fragments and a fragment would be further assigned a parallelism to execute, for each parallelism, we call a task. Hash aggregation is an executor within a task, aka, HashAggExec. To spill a HashAgg, we need to spill the hash table and the input chunks. Ideally, we want HashAggExec to work normally when memory is sufficient and when memory is not enough, we spill the hash table and all input chunks.
+
+![spill-hash-agg](images/0089-spill-hash-aggregation/spill-hash-agg.png)
 
 ### Partitions
 
