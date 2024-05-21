@@ -2,7 +2,7 @@
 feature: Decouple iceberg sink commit from risingwave checkpoint
 authors:
 - "Renjie Liu, Yiming Wen"
-  start_date: "2023/11/20"
+start_date: "2023/11/20"
 ---
 
 # RFC: Decouple iceberg sink commit from risingwave checkpoint
