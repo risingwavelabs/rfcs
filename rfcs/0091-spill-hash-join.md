@@ -17,7 +17,7 @@ Joining two large table is a typical analytical workload in a database. Risingwa
 
 To spill a hash join, we can use the same idea from the [spill hash aggregation RFC](https://github.com/risingwavelabs/rfcs/pull/89), i.e. partition inputs of hash join to reduce the hash table size needed to be process within a hash join. Because hash join has two inputs, we need to use a same hash function to hash both inputs into partition pairs. Within a partiton, we will get a probe side input spill file and a build side input spill file. The size of the partition is expected to the much smaller than the original input size, so we can run a hash join against these partitions one by one and recursively if necessary.
 
-![spill-hash-join](images/0000-spill-hash-join/spill-hash-join.png)
+![spill-hash-join](images/0091-spill-hash-join/spill-hash-join.png)
 
 ### Partitions
 
