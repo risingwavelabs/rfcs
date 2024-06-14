@@ -19,7 +19,7 @@ Sorting is a fundamental algorithm in databases, and you can use the "ORDER BY" 
 ## Design
 
 To implement a spill-able sort, we employ the divide and conquer approach, similar to how it was done in the RFCs for spill hash aggregation and spill join aggregation before ([spill hash aggregation RFC](https://github.com/risingwavelabs/rfcs/pull/89) and [spill join aggregation RFC](https://github.com/risingwavelabs/rfcs/pull/91) ). We partition the input for sorting into different segments, but this time using a round-robin method, which can be more efficient and helps avoid data skew. After partitioning, each segment's size is expected to be much smaller than the original input size. Consequently, we sort these partitions individually, and finally, a merge sort is employed to merge all the sorted segments.
-![spill-sort](images/0000-spill-sort/spill-sort.png)
+![spill-sort](images/0092-spill-sort/spill-sort.png)
 
 ### Partitions
 
