@@ -36,7 +36,7 @@ Choosing too few partitions leads to a handful of large-sized partitions causing
       // Spill
       for (k,v) in hash_table:
         partition = hash(k) % partition_num
-        write_to_agg_state_file(k, v)
+        write_to_agg_state_file(partition, k, v)
       for chunk in inputs:
         partition = hash(k) % partition_num
         write_to_input_file(chunk)
